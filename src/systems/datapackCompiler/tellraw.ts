@@ -287,6 +287,24 @@ namespace TELLRAW {
 			'\n Please ensure the command is valid.',
 		])
 
+	export const NODE_ENTITY_NOT_FOUND = () =>
+		TELLRAW_ERROR('Node Not Found', [
+			'Node ',
+			{ nbt: 'args.name', storage: 'animated_java:temp', color: 'aqua' },
+			' does not exist!',
+			'\n Please ensure that its name is spelled correctly.',
+		])
+
+	export const NODE_COMMAND_FAILED_TO_EXECUTE = () =>
+		TELLRAW_ERROR('Failed to Execute Command as Node', [
+			'Failed to execute command ',
+			{ nbt: 'args.command', storage: 'animated_java:temp', color: 'yellow' },
+			' as Node ',
+			{ nbt: 'args.name', storage: 'animated_java:temp', color: 'aqua' },
+			'.',
+			'\n Please ensure the command is valid.',
+		])
+
 	export const AUTO_UPDATE_RIG_ORIENTATION_MOVE_WARNING = () =>
 		TELLRAW_ERROR('Called Move Function while Auto Update Rig Orientation is Enabled', [
 			'The ',
