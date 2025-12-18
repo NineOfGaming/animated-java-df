@@ -288,6 +288,7 @@ dir animations {
 							tag @s add <%TAGS.TRANSFORMS_ONLY()%>
 							execute at @s run function ./zzz/set_frame {frame: 0}
 							tag @s remove <%TAGS.TRANSFORMS_ONLY()%>
+							tag @s remove <%TAGS.ANIMATION_PLAYING(export_namespace, animation.storage_name)%>
 						}
 					}
 					scoreboard players add @s <%OBJECTIVES.FRAME(animation.storage_name)%> 1
