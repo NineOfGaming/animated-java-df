@@ -1,7 +1,7 @@
 {
 	"meta": {
 		"format": "animated-java:format/blueprint",
-		"format_version": "1.8.0-beta.4",
+		"format_version": "1.8.1",
 		"uuid": "167b27cd-b559-3f13-a97c-0841fe21f1d1",
 		"save_location": "D:\\github-repos\\animated-java\\old-animated-java\\test-packs\\latest\\blueprints\\armor_stand_latest.ajblueprint",
 		"last_used_export_namespace": "armor_stand"
@@ -17,7 +17,6 @@
 		"data_pack": "../datapacks/animated_java",
 		"on_summon_function": "say On-Summon!",
 		"on_remove_function": "say On-Remove!",
-		"auto_update_rig_orientation": false,
 		"baked_animations": false,
 		"json_file": "../testPluginExport.json"
 	},
@@ -2089,7 +2088,7 @@
 			"override": false,
 			"length": 1,
 			"snapping": 20,
-			"selected": true,
+			"selected": false,
 			"saved": true,
 			"path": "",
 			"anim_time_update": "",
@@ -2294,6 +2293,62 @@
 							"interpolation": "linear",
 							"easing": "easeOutCubic",
 							"easingArgs": [1]
+						}
+					]
+				}
+			}
+		},
+		{
+			"uuid": "8b5ebbc6-1189-bb9a-00f6-6ef68e212fc1",
+			"name": "camera_test",
+			"loop": "loop",
+			"override": false,
+			"length": 90,
+			"snapping": 20,
+			"selected": true,
+			"saved": true,
+			"path": "",
+			"anim_time_update": "",
+			"blend_weight": "",
+			"start_delay": "",
+			"loop_delay": "0",
+			"excluded_nodes": [],
+			"animators": {
+				"3ffeee76-901e-f8a2-c29a-82f90e16fd1e": {
+					"name": "camera",
+					"type": "camera",
+					"keyframes": [
+						{
+							"channel": "position",
+							"data_points": [
+								{
+									"x": "math.sin(q.life_time * 4) * 100",
+									"y": "0",
+									"z": "math.cos(q.life_time * 4) * 100"
+								}
+							],
+							"uuid": "7ea87827-b1e4-6f50-5a62-b4a2b3e25b54",
+							"time": 0,
+							"color": -1,
+							"interpolation": "linear",
+							"easing": "linear",
+							"easingArgs": []
+						},
+						{
+							"channel": "rotation",
+							"data_points": [
+								{
+									"x": "0",
+									"y": "q.life_time * 4",
+									"z": "0"
+								}
+							],
+							"uuid": "3e52691f-2314-0f11-1f4f-d6ce872df516",
+							"time": 0,
+							"color": -1,
+							"interpolation": "linear",
+							"easing": "linear",
+							"easingArgs": []
 						}
 					]
 				}

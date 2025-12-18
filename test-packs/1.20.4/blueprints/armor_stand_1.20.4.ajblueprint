@@ -1,7 +1,7 @@
 {
 	"meta": {
 		"format": "animated-java:format/blueprint",
-		"format_version": "1.8.0-beta.2",
+		"format_version": "1.8.1",
 		"uuid": "167b27cd-b559-3f13-a97c-0841fe21f1d1",
 		"save_location": "D:\\github-repos\\animated-java\\old-animated-java\\test-packs\\1.20.4\\blueprints\\armor_stand_1.20.4.ajblueprint",
 		"last_used_export_namespace": "armor_stand"
@@ -2089,7 +2089,7 @@
 			"override": false,
 			"length": 1,
 			"snapping": 20,
-			"selected": true,
+			"selected": false,
 			"saved": true,
 			"path": "",
 			"anim_time_update": "",
@@ -2294,6 +2294,61 @@
 							"interpolation": "linear",
 							"easing": "easeOutCubic",
 							"easingArgs": [1]
+						}
+					]
+				}
+			}
+		},
+		{
+			"uuid": "7369e950-97e5-3a18-7b5a-f0369a42cdb4",
+			"name": "camera_test",
+			"loop": "loop",
+			"override": false,
+			"length": 120,
+			"snapping": 20,
+			"selected": true,
+			"saved": true,
+			"path": "",
+			"anim_time_update": "",
+			"blend_weight": "",
+			"start_delay": "",
+			"loop_delay": "0",
+			"excluded_nodes": [],
+			"animators": {
+				"808e3c26-7285-af3f-a079-d8b899176dd3": {
+					"name": "head",
+					"type": "bone",
+					"keyframes": [
+						{
+							"channel": "rotation",
+							"data_points": [
+								{
+									"x": "0",
+									"y": "0",
+									"z": "0"
+								}
+							],
+							"uuid": "d724507d-0fc4-e256-2dec-90ab2497fcb7",
+							"time": 0,
+							"color": -1,
+							"interpolation": "linear",
+							"easing": "linear",
+							"easingArgs": []
+						},
+						{
+							"channel": "rotation",
+							"data_points": [
+								{
+									"x": "0",
+									"y": "360",
+									"z": "0"
+								}
+							],
+							"uuid": "414a86e8-4127-88a3-551c-ec015f01ba8a",
+							"time": 120,
+							"color": -1,
+							"interpolation": "linear",
+							"easing": "linear"
 						}
 					]
 				}

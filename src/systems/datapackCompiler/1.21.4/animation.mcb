@@ -130,6 +130,13 @@ dir root {
 							positioned ^$(px) ^$(py) ^$(pz) \
 							rotated ~$(ry) ~$(rx) \
 						run tp @s ~ ~ ~ ~ ~
+						# Precise Rotation Workaround. Fixes MC-272913.
+						# Thanks @Triton365! (https://discord.com/channels/154777837382008833/157097006500806656/1402253905408163842)
+						$execute \
+							as $(uuid) \
+							store success entity @s OnGround byte 1 \
+							store success score @s <%OBJECTIVES.I()%> \
+							unless score @s <%OBJECTIVES.I()%> matches 1
 					}
 				}
 			}

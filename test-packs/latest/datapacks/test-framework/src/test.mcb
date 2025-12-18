@@ -41,4 +41,11 @@ dir armor_stand {
 			}
 		}
 	}
+
+	function test_precise_camera_rotation {
+		function animated_java:global/remove/everything
+		execute positioned 0 1 0 rotated 0 0 run function animated_java:armor_stand/summon {args:{animation:'camera_test',start_animation:true}}
+		gamemode spectator @s
+		execute as @n[tag=aj.global.root] run function animated_java:armor_stand/as_camera {name:'camera',command:'spectate @s @p'}
+	}
 }
