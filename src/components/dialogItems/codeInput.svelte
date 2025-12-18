@@ -13,8 +13,6 @@
 
 	value.get()
 
-	let codeJarElement: HTMLPreElement | undefined
-
 	let warningText = ''
 	let errorText = ''
 
@@ -33,20 +31,6 @@
 		unsub()
 	})
 
-	const onKeydown = (e: Event) => {
-		if (!(e instanceof KeyboardEvent)) return
-		if (e.key === 'Tab' || e.key === 'Enter') {
-			e.stopPropagation()
-		} else if ((e.code === 'KeyZ' || e.code === 'KeyY') && e.ctrlKey) {
-			// CodeJar doesn't capture undo correctly. So we have to fudge it a little.
-			requestAnimationFrame(() => {
-				if (codeJarElement?.textContent != undefined) {
-					$value = codeJarElement.textContent
-				}
-			})
-		}
-	}
-
 	function onReset() {
 		$value = defaultValue
 		onValueChange()
@@ -59,7 +43,7 @@
 	<div class="dialog_bar form_bar custom">
 		<label class="name_space_left" for={id}>{label}</label>
 
-		<div class="content codejar-container" on:keydown={onKeydown}>
+		<div class="content codejar-container">
 			<CustomCodeJar
 				{syntax}
 				bind:value={$value}

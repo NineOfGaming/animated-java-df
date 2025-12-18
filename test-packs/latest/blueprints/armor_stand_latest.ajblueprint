@@ -873,7 +873,6 @@
 			"shadow": true,
 			"seeThrough": true,
 			"onSummonFunction": "",
-			"preciseRotationFix": false,
 			"configs": {
 				"default": {
 					"on_apply_function": "",
@@ -930,7 +929,6 @@
 			"item": "minecraft:diamond",
 			"itemDisplay": "none",
 			"onSummonFunction": "say I'm a Diamond!",
-			"preciseRotationFix": false,
 			"configs": {
 				"default": {
 					"on_apply_function": "",
@@ -961,90 +959,6 @@
 					}
 				}
 			}
-		},
-		{
-			"name": "cube",
-			"box_uv": false,
-			"rescale": false,
-			"locked": false,
-			"light_emission": 0,
-			"render_order": "default",
-			"allow_mirror_modeling": true,
-			"from": [-38, 0, -13],
-			"to": [-26, 1, -1],
-			"autouv": 0,
-			"color": 2,
-			"origin": [-32, 0, -7],
-			"faces": {
-				"north": {
-					"uv": [12, 44, 24, 45],
-					"texture": 0
-				},
-				"east": {
-					"uv": [0, 44, 12, 45],
-					"texture": 0
-				},
-				"south": {
-					"uv": [36, 44, 48, 45],
-					"texture": 0
-				},
-				"west": {
-					"uv": [24, 44, 36, 45],
-					"texture": 0
-				},
-				"up": {
-					"uv": [12, 32, 24, 44],
-					"texture": 0
-				},
-				"down": {
-					"uv": [24, 32, 36, 44],
-					"texture": 0
-				}
-			},
-			"type": "cube",
-			"uuid": "a5106dee-70c2-6b1a-f446-7275ffb9c916"
-		},
-		{
-			"name": "cube",
-			"box_uv": false,
-			"rescale": false,
-			"locked": false,
-			"light_emission": 0,
-			"render_order": "default",
-			"allow_mirror_modeling": true,
-			"from": [-38, 0, 1],
-			"to": [-26, 1, 13],
-			"autouv": 0,
-			"color": 2,
-			"origin": [-32, 0, 7],
-			"faces": {
-				"north": {
-					"uv": [12, 44, 24, 45],
-					"texture": 0
-				},
-				"east": {
-					"uv": [0, 44, 12, 45],
-					"texture": 0
-				},
-				"south": {
-					"uv": [36, 44, 48, 45],
-					"texture": 0
-				},
-				"west": {
-					"uv": [24, 44, 36, 45],
-					"texture": 0
-				},
-				"up": {
-					"uv": [12, 32, 24, 44],
-					"texture": 0
-				},
-				"down": {
-					"uv": [24, 32, 36, 44],
-					"texture": 0
-				}
-			},
-			"type": "cube",
-			"uuid": "b54db0a5-ee46-f8fd-f26f-d87e34896dcf"
 		}
 	],
 	"outliner": [
@@ -1053,7 +967,6 @@
 			"origin": [0, 0, 0],
 			"color": 0,
 			"onSummonFunction": "",
-			"preciseRotationFix": false,
 			"configs": {
 				"default": {
 					"billboard": "fixed",
@@ -1084,7 +997,6 @@
 					"origin": [0, 0, 0],
 					"color": 0,
 					"onSummonFunction": "",
-					"preciseRotationFix": false,
 					"configs": {
 						"default": {
 							"billboard": "fixed",
@@ -1115,7 +1027,6 @@
 							"origin": [0, 1, 6],
 							"color": 0,
 							"onSummonFunction": "",
-							"preciseRotationFix": false,
 							"configs": {
 								"default": {
 									"on_apply_function": "",
@@ -1145,75 +1056,10 @@
 					]
 				},
 				{
-					"name": "baseplate_pivot_a2",
-					"origin": [-32, 0.5, -7],
-					"color": 0,
-					"onSummonFunction": "",
-					"preciseRotationFix": false,
-					"configs": {
-						"default": {
-							"on_apply_function": "",
-							"billboard": "fixed",
-							"override_brightness": false,
-							"brightness_override": 0,
-							"enchanted": false,
-							"glowing": false,
-							"override_glow_color": false,
-							"glow_color": "#ffffff",
-							"invisible": false,
-							"shadow_radius": 0,
-							"shadow_strength": 1
-						},
-						"variants": {}
-					},
-					"uuid": "37f6cf1d-c8fc-620f-91a2-59bd597c3759",
-					"export": true,
-					"mirror_uv": false,
-					"isOpen": true,
-					"locked": false,
-					"visibility": true,
-					"autouv": 0,
-					"selected": false,
-					"children": ["a5106dee-70c2-6b1a-f446-7275ffb9c916"]
-				},
-				{
-					"name": "baseplate_pivot_a3",
-					"origin": [-32, 0.5, 7],
-					"color": 0,
-					"onSummonFunction": "",
-					"preciseRotationFix": true,
-					"configs": {
-						"default": {
-							"on_apply_function": "",
-							"billboard": "fixed",
-							"override_brightness": false,
-							"brightness_override": 0,
-							"enchanted": false,
-							"glowing": false,
-							"override_glow_color": false,
-							"glow_color": "#ffffff",
-							"invisible": false,
-							"shadow_radius": 0,
-							"shadow_strength": 1
-						},
-						"variants": {}
-					},
-					"uuid": "4dea286c-8490-d441-ee02-c3d24d47d034",
-					"export": true,
-					"mirror_uv": false,
-					"isOpen": true,
-					"locked": false,
-					"visibility": true,
-					"autouv": 0,
-					"selected": false,
-					"children": ["b54db0a5-ee46-f8fd-f26f-d87e34896dcf"]
-				},
-				{
 					"name": "armor_stand_root",
 					"origin": [0, 1, 0],
 					"color": 0,
 					"onSummonFunction": "",
-					"preciseRotationFix": false,
 					"configs": {
 						"default": {
 							"billboard": "fixed",
@@ -1245,7 +1091,6 @@
 							"origin": [0, 12, 0],
 							"color": 0,
 							"onSummonFunction": "",
-							"preciseRotationFix": false,
 							"configs": {
 								"default": {
 									"billboard": "fixed",
@@ -1279,7 +1124,6 @@
 									"origin": [0, 12, 0],
 									"color": 0,
 									"onSummonFunction": "",
-									"preciseRotationFix": false,
 									"configs": {
 										"default": {
 											"billboard": "fixed",
@@ -1313,7 +1157,6 @@
 											"origin": [0, 24, 0],
 											"color": 0,
 											"onSummonFunction": "",
-											"preciseRotationFix": false,
 											"configs": {
 												"default": {
 													"billboard": "fixed",
@@ -1382,7 +1225,6 @@
 													"origin": [0, 23, 0],
 													"color": 0,
 													"onSummonFunction": "",
-													"preciseRotationFix": false,
 													"configs": {
 														"default": {
 															"billboard": "fixed",
@@ -1432,7 +1274,6 @@
 													"origin": [-6, 23, 0],
 													"color": 0,
 													"onSummonFunction": "",
-													"preciseRotationFix": false,
 													"configs": {
 														"default": {
 															"billboard": "fixed",
@@ -1482,7 +1323,6 @@
 													"origin": [6, 23, 0],
 													"color": 0,
 													"onSummonFunction": "",
-													"preciseRotationFix": false,
 													"configs": {
 														"default": {
 															"billboard": "fixed",
@@ -1541,7 +1381,6 @@
 									"origin": [2, 12, 0],
 									"color": 0,
 									"onSummonFunction": "",
-									"preciseRotationFix": false,
 									"configs": {
 										"default": {
 											"billboard": "fixed",
@@ -1589,7 +1428,6 @@
 									"origin": [-2, 12, 0],
 									"color": 0,
 									"onSummonFunction": "",
-									"preciseRotationFix": false,
 									"configs": {
 										"default": {
 											"billboard": "fixed",

@@ -9,7 +9,11 @@
 	let codeJarElement: HTMLPreElement | undefined
 
 	function highlight(code: string, syntax?: string) {
-		if (!syntax) return code
+		if (!syntax) {
+			const element = document.createElement('div')
+			element.textContent = code
+			return element.innerHTML
+		}
 		return Prism.highlight(code, Prism.languages[syntax], syntax)
 	}
 
@@ -44,7 +48,6 @@
 		{highlight}
 		bind:value
 		on:change={() => forceNoWrap()}
-		preserveIdent
 		history
 		class={'language-' + (syntax ?? 'plaintext')}
 		style={`
