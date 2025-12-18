@@ -335,6 +335,8 @@ export function getDataPackFormat(version: SUPPORTED_MINECRAFT_VERSIONS): number
 			return 26
 		case SUPPORTED_MINECRAFT_VERSIONS['1.20.5']:
 			return 41
+		case SUPPORTED_MINECRAFT_VERSIONS['1.21.0']:
+			return 48
 		case SUPPORTED_MINECRAFT_VERSIONS['1.21.2']:
 			return 57
 		case SUPPORTED_MINECRAFT_VERSIONS['1.21.4']:
@@ -347,9 +349,6 @@ export function getDataPackFormat(version: SUPPORTED_MINECRAFT_VERSIONS): number
 			return 88.0
 		case SUPPORTED_MINECRAFT_VERSIONS['1.21.11']:
 			return 93.1
-		default:
-			console.warn(`Unknown Minecraft version: ${version}`)
-			return Infinity
 	}
 }
 
@@ -359,6 +358,8 @@ export function getResourcePackFormat(version: SUPPORTED_MINECRAFT_VERSIONS): nu
 			return 22
 		case SUPPORTED_MINECRAFT_VERSIONS['1.20.5']:
 			return 32
+		case SUPPORTED_MINECRAFT_VERSIONS['1.21.0']:
+			return 34
 		case SUPPORTED_MINECRAFT_VERSIONS['1.21.2']:
 			return 42
 		case SUPPORTED_MINECRAFT_VERSIONS['1.21.4']:
@@ -371,9 +372,6 @@ export function getResourcePackFormat(version: SUPPORTED_MINECRAFT_VERSIONS): nu
 			return 69.0
 		case SUPPORTED_MINECRAFT_VERSIONS['1.21.11']:
 			return 74.0
-		default:
-			console.warn(`Unknown Minecraft version: ${version}`)
-			return Infinity
 	}
 }
 
