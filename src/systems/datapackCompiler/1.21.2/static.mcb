@@ -172,7 +172,7 @@ function summon {
 					function *global/gu/get_entity_uuid_string
 				}
 				data modify entity @s data.uuids append from storage <%gu_storage%> out
-				data modify entity @s data.uuids_by_name.<%locator.type + '_' + locator.storage_name%> set from storage <%gu_storage%> out
+				data modify entity @s data.uuids_by_name.<%locator.storage_name%> set from storage <%gu_storage%> out
 				data modify entity @s data.locators.<%locator.storage_name%>.uuid set from storage <%gu_storage%> out
 			}
 
@@ -195,7 +195,7 @@ function summon {
 					function *global/gu/get_entity_uuid_string
 				}
 				data modify entity @s data.uuids append from storage <%gu_storage%> out
-				data modify entity @s data.uuids_by_name.<%camera.type + '_' + camera.storage_name%> set from storage <%gu_storage%> out
+				data modify entity @s data.uuids_by_name.<%camera.storage_name%> set from storage <%gu_storage%> out
 				data modify entity @s data.cameras.<%camera.storage_name%>.uuid set from storage <%gu_storage%> out
 			}
 
@@ -208,7 +208,7 @@ function summon {
 					function *global/gu/get_entity_uuid_string
 
 				data modify entity @s data.uuids append from storage <%gu_storage%> out
-				data modify entity @s data.uuids_by_name.<%node.type + '_' + node.storage_name%> set from storage <%gu_storage%> out
+				data modify entity @s data.uuids_by_name.<%node.storage_name%> set from storage <%gu_storage%> out
 			}
 		}
 
@@ -297,6 +297,39 @@ function summon {
 		# Remove the NEW tag from the root entity, and it's passengers.
 		tag @s remove <%TAGS.NEW()%>
 		execute on passengers run tag @s remove <%TAGS.NEW()%>
+	}
+}
+
+function as_node {
+	#ARGS: {name: string, command: string}
+	debug assert executed_as_root_entity <%TAGS.PROJECT_ROOT(export_namespace)%>
+	data remove storage <%temp_storage%> args
+	$data modify storage <%temp_storage%> args merge value {name:'$(name)', command:'$(command)', uuid:'+MISSING_UUID+'}
+
+	IF (debug_mode) {
+		execute if data storage <%temp_storage%> {args:{name:''}} run return run tellraw @a <%TELLRAW.ARGUMENT_CANNOT_BE_EMPTY('name')%>
+		execute if data storage <%temp_storage%> {args:{command:''}} run return run tellraw @a <%TELLRAW.ARGUMENT_CANNOT_BE_EMPTY('command')%>
+	}
+
+	execute on passengers if entity @s[tag=<%TAGS.GLOBAL_DATA()%>] run block zzz/as_node/as_data { with storage <%temp_storage%> args
+		$data modify storage <%temp_storage%> args.uuid set from entity @s data.uuids_by_name.$(name)
+		IF (debug_mode) {
+			scoreboard players set #aj.check <%OBJECTIVES.I()%> 0
+		}
+		block execute_as_uuid { with storage <%temp_storage%> args
+			IF (debug_mode) {
+				# If the function successfully instantiated, the provided command is valid.
+				scoreboard players set #aj.check <%OBJECTIVES.I()%> 1
+			}
+			$execute as $(uuid) run return run $(command)
+			IF (debug_mode) {
+				# If the entity with the provided UUID doesn't exist, the node wasn't found.
+				tellraw @a <%TELLRAW.NODE_ENTITY_NOT_FOUND()%>
+			}
+		}
+		IF (debug_mode) {
+			execute if score #aj.check <%OBJECTIVES.I()%> matches 0 run tellraw @a <%TELLRAW.NODE_COMMAND_FAILED_TO_EXECUTE()%>
+		}
 	}
 }
 

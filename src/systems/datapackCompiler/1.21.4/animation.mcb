@@ -270,7 +270,15 @@ dir animations {
 				execute at @s run function ./zzz/apply_frame {frame: 0}
 				$execute at @s run function ./zzz/apply_frame {frame: $(to_frame)}
 				tag @s remove <%TAGS.TRANSFORMS_ONLY()%>
-				execute on passengers store result entity @s interpolation_duration int 1 run scoreboard players get #this <%OBJECTIVES.I()%>
+
+				execute on passengers run { with entity @s data.uuids_by_name
+					REPEAT (Object.values(rig.nodes).filter(node => BONE_TYPES.includes(node.type))) as node {
+						$execute \
+							as $(<%node.storage_name%>) \
+							store result entity @s interpolation_duration int 1 \
+							run scoreboard players get #this <%OBJECTIVES.I()%>
+					}
+				}
 			}
 
 			dir zzz {

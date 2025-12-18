@@ -130,13 +130,6 @@ dir root {
 							positioned ^$(px) ^$(py) ^$(pz) \
 							rotated ~$(ry) ~$(rx) \
 						run tp @s ~ ~ ~ ~ ~
-						# Precise Rotation Workaround. Fixes MC-272913.
-						# Thanks @Triton365! (https://discord.com/channels/154777837382008833/157097006500806656/1402253905408163842)
-						$execute \
-							as $(uuid) \
-							store success entity @s OnGround byte 1 \
-							store success score @s <%OBJECTIVES.I()%> \
-							unless score @s <%OBJECTIVES.I()%> matches 1
 					}
 				}
 			}
@@ -315,11 +308,11 @@ dir animations {
 							IF (BONE_TYPES.includes(node.type)) {
 								$execute on passengers if entity @s[tag=<%TAGS.PROJECT_NODE_NAMED(export_namespace, node.storage_name)%>] run \
 									data modify entity @s {} merge from \
-										storage <%project_storage%>/animations <%animation.storage_name%>.$(frame).<%node.type.charAt(0) + '_' + node.storage_name%>
+										storage <%project_storage%>/animations <%animation.storage_name%>.$(frame).<%node.storage_name%>
 							} ELSE IF (node.type === 'locator' || node.type === 'camera') {
 								$execute on passengers if entity @s[tag=<%TAGS.GLOBAL_DATA()%>] run \
-									$data modify entity @s data.uuids_by_name.<%node.type + '_' + node.storage_name%> merge from \
-										storage <%project_storage%>/animations <%animation.storage_name%>.$(frame).<%node.type.charAt(0) + '_' + node.storage_name%>
+									$data modify entity @s data.uuids_by_name.<%node.storage_name%> merge from \
+										storage <%project_storage%>/animations <%animation.storage_name%>.$(frame).<%node.storage_name%>
 							}
 						}
 
@@ -383,19 +376,20 @@ dir animations {
 
 											if (transform.interpolation === 'pre-post' || isStepInterpolation) {
 												frameFunc +=
-													`\n$data merge entity $(${node.type + '_' + node.storage_name})%NEWLINE_PATCH%{`
+													`\n$data merge entity $(${node.storage_name})%NEWLINE_PATCH%{`
 														+ `transformation: ${matrixToNbtFloatArray(transform.matrix).toString()},`
 														+ `start_interpolation: ${isStepInterpolation ? -1 : 0},`
 														+ `interpolation_duration: ${isStepInterpolation ? 0 : interpolation_duration}`
 													+ `}`
 											} else {
 												frameFunc +=
-													`\n$data merge entity $(${node.type + '_' + node.storage_name})%NEWLINE_PATCH%{`
+													`\n$data merge entity $(${node.storage_name})%NEWLINE_PATCH%{`
 														+ `transformation: ${matrixToNbtFloatArray(transform.matrix).toString()},`
 														+ `start_interpolation: 0,`
 														+ `interpolation_duration: ${interpolation_duration}`
 													+ `}`
 											}
+
 											;hasFunction = true
 											break
 										}
@@ -415,7 +409,7 @@ dir animations {
 											if (transform.function) {
 												if (node.config?.use_entity) {
 													frameFunc +=
-														`\n$execute on vehicle unless entity @s[tag=${TAGS.TRANSFORMS_ONLY()}] as $(${node.type + '_' + node.storage_name}) `
+														`\n$execute on vehicle unless entity @s[tag=${TAGS.TRANSFORMS_ONLY()}] as $(${node.storage_name}) `
 														+ `positioned ^${roundTo(transform.pos[0], 10)} ^${roundTo(transform.pos[1], 10)} ^${roundTo(transform.pos[2], 10)} `
 														+ `rotated ~${roundTo(transform.head_rot[1], 10)} ~${roundTo(transform.head_rot[0], 10)} `
 														+ `${transform.function_execute_condition ? transform.function_execute_condition + ' ' : ''}run `
@@ -555,7 +549,7 @@ function summon {
 					function *global/gu/get_entity_uuid_string
 				}
 				data modify entity @s data.uuids append from storage <%gu_storage%> out
-				data modify entity @s data.uuids_by_name.<%locator.type + '_' + locator.storage_name%> set from storage <%gu_storage%> out
+				data modify entity @s data.uuids_by_name.<%locator.storage_name%> set from storage <%gu_storage%> out
 				data modify entity @s data.locators.<%locator.storage_name%>.uuid set from storage <%gu_storage%> out
 			}
 
@@ -578,7 +572,7 @@ function summon {
 					function *global/gu/get_entity_uuid_string
 				}
 				data modify entity @s data.uuids append from storage <%gu_storage%> out
-				data modify entity @s data.uuids_by_name.<%camera.type + '_' + camera.storage_name%> set from storage <%gu_storage%> out
+				data modify entity @s data.uuids_by_name.<%camera.storage_name%> set from storage <%gu_storage%> out
 				data modify entity @s data.cameras.<%camera.storage_name%>.uuid set from storage <%gu_storage%> out
 			}
 
@@ -591,7 +585,7 @@ function summon {
 					function *global/gu/get_entity_uuid_string
 
 				data modify entity @s data.uuids append from storage <%gu_storage%> out
-				data modify entity @s data.uuids_by_name.<%node.type + '_' + node.storage_name%> set from storage <%gu_storage%> out
+				data modify entity @s data.uuids_by_name.<%node.storage_name%> set from storage <%gu_storage%> out
 			}
 		}
 
@@ -728,6 +722,39 @@ function summon {
 		# Remove the NEW tag from the root entity, and it's passengers.
 		tag @s remove <%TAGS.NEW()%>
 		execute on passengers run tag @s remove <%TAGS.NEW()%>
+	}
+}
+
+function as_node {
+	#ARGS: {name: string, command: string}
+	debug assert executed_as_root_entity <%TAGS.PROJECT_ROOT(export_namespace)%>
+	data remove storage <%temp_storage%> args
+	$data modify storage <%temp_storage%> args merge value {name:'$(name)', command:'$(command)', uuid:'+MISSING_UUID+'}
+
+	IF (debug_mode) {
+		execute if data storage <%temp_storage%> {args:{name:''}} run return run tellraw @a <%TELLRAW.ARGUMENT_CANNOT_BE_EMPTY('name')%>
+		execute if data storage <%temp_storage%> {args:{command:''}} run return run tellraw @a <%TELLRAW.ARGUMENT_CANNOT_BE_EMPTY('command')%>
+	}
+
+	execute on passengers if entity @s[tag=<%TAGS.GLOBAL_DATA()%>] run block zzz/as_node/as_data { with storage <%temp_storage%> args
+		$data modify storage <%temp_storage%> args.uuid set from entity @s data.uuids_by_name.$(name)
+		IF (debug_mode) {
+			scoreboard players set #aj.check <%OBJECTIVES.I()%> 0
+		}
+		block execute_as_uuid { with storage <%temp_storage%> args
+			IF (debug_mode) {
+				# If the function successfully instantiated, the provided command is valid.
+				scoreboard players set #aj.check <%OBJECTIVES.I()%> 1
+			}
+			$execute as $(uuid) run return run $(command)
+			IF (debug_mode) {
+				# If the entity with the provided UUID doesn't exist, the node wasn't found.
+				tellraw @a <%TELLRAW.NODE_ENTITY_NOT_FOUND()%>
+			}
+		}
+		IF (debug_mode) {
+			execute if score #aj.check <%OBJECTIVES.I()%> matches 0 run tellraw @a <%TELLRAW.NODE_COMMAND_FAILED_TO_EXECUTE()%>
+		}
 	}
 }
 
@@ -1189,7 +1216,7 @@ function set_default_pose {
 		function ./zzz/reset_floating_entities
 	}
 
-	REPEAT (Object.values(rig.nodes).filter(node => node.type !== 'locator' && node.type !== 'camera')) as node {
+	REPEAT (Object.values(rig.nodes).filter(node => BONE_TYPES.includes(node.type))) as node {
 		execute \
 			on passengers \
 			if entity @s[tag=<%TAGS.PROJECT_NODE_NAMED(export_namespace, node.storage_name)%>] \
