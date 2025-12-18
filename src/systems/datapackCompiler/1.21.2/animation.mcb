@@ -749,6 +749,43 @@ IF (has_entity_locators) {
 					# If the function successfully instantiated, the provided command is valid.
 					scoreboard players set #aj.check <%OBJECTIVES.I()%> 1
 				}
+				$execute as $(uuid) run return run $(command)
+				IF (debug_mode) {
+					# If the entity with the provided UUID doesn't exist, the locator wasn't found.
+					tellraw @a <%TELLRAW.LOCATOR_ENTITY_NOT_FOUND()%>
+				}
+			}
+			IF (debug_mode) {
+				execute if score #aj.check <%OBJECTIVES.I()%> matches 0 run tellraw @a <%TELLRAW.LOCATOR_COMMAND_FAILED_TO_EXECUTE()%>
+			}
+		}
+	}
+
+	function as_at_locator {
+		#ARGS: {name: string, command: string}
+		debug assert executed_as_root_entity <%TAGS.PROJECT_ROOT(export_namespace)%>
+
+		data remove storage <%temp_storage%> args
+		$data modify storage <%temp_storage%> args merge value {name:'$(name)', command:'$(command)', uuid:'+MISSING_UUID+'}
+
+		IF (debug_mode) {
+			execute if data storage <%temp_storage%> {args:{name:''}} run return run tellraw @a <%TELLRAW.ARGUMENT_CANNOT_BE_EMPTY('name')%>
+			execute if data storage <%temp_storage%> {args:{command:''}} run return run tellraw @a <%TELLRAW.ARGUMENT_CANNOT_BE_EMPTY('command')%>
+		}
+
+		execute \
+			on passengers \
+			if entity @s[tag=<%TAGS.GLOBAL_DATA()%>] \
+		run block zzz/as_locator/as_data { with storage <%temp_storage%> args
+			$data modify storage <%temp_storage%> args.uuid set from entity @s data.locators.$(name).uuid
+			IF (debug_mode) {
+				scoreboard players set #aj.check <%OBJECTIVES.I()%> 0
+			}
+			block execute_as_uuid { with storage <%temp_storage%> args
+				IF (debug_mode) {
+					# If the function successfully instantiated, the provided command is valid.
+					scoreboard players set #aj.check <%OBJECTIVES.I()%> 1
+				}
 				$execute as $(uuid) at @s run return run $(command)
 				IF (debug_mode) {
 					# If the entity with the provided UUID doesn't exist, the locator wasn't found.
@@ -762,6 +799,27 @@ IF (has_entity_locators) {
 	}
 
 	function as_all_locators {
+		#ARGS: {command: string}
+		debug assert executed_as_root_entity <%TAGS.PROJECT_ROOT(export_namespace)%>
+
+		data remove storage <%temp_storage%> args
+		$data modify storage <%temp_storage%> args merge value {command:'$(command)'}
+
+		IF (debug_mode) {
+			execute if data storage <%temp_storage%> {args:{command:''}} run return run tellraw @a <%TELLRAW.ARGUMENT_CANNOT_BE_EMPTY('command')%>
+		}
+
+		execute on passengers if entity @s[tag=<%TAGS.GLOBAL_DATA()%>] run block zzz/as_all_locators/as_data {
+			REPEAT (Object.values(rig.nodes).filter(node => node.type === 'locator' && node.config?.use_entity)) as locator {
+				data modify storage <%temp_storage%> args.uuid set from entity @s data.locators.<%locator.storage_name%>.uuid
+				block execute_as_uuid { with storage <%temp_storage%> args
+					$execute as $(uuid) run $(command)
+				}
+			}
+		}
+	}
+
+	function as_at_all_locators {
 		#ARGS: {command: string}
 		debug assert executed_as_root_entity <%TAGS.PROJECT_ROOT(export_namespace)%>
 
