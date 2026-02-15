@@ -1,4 +1,5 @@
 import * as crypto from 'crypto'
+import * as fs from 'fs'
 import type {
 	IBlueprintDisplayEntityConfigJSON,
 	IBlueprintLocatorConfigJSON,

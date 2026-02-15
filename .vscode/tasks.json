@@ -45,6 +45,30 @@
 				"instancePolicy": "terminateOldest",
 				"reevaluateOnRerun": true
 			}
+		},
+		{
+			"type": "shell",
+			"command": "yarn.cmd tsc --noEmit --pretty false",
+			"label": "TypeScript: Check whole project",
+			"detail": "Reports TypeScript errors via the problems view",
+			"group": "test",
+			"icon": {
+				"id": "code",
+				"color": "terminal.ansiBlue"
+			},
+			"problemMatcher": "$tsc",
+			"presentation": {
+				"reveal": "always",
+				"panel": "shared",
+				"showReuseMessage": true,
+				"clear": true,
+				"revealProblems": "onProblem"
+			},
+			"runOptions": {
+				"instanceLimit": 1,
+				"instancePolicy": "terminateOldest",
+				"reevaluateOnRerun": true
+			}
 		}
 	]
 }

@@ -1,4 +1,4 @@
-/// <reference path="/var/mnt/ssd2/repos/snavesutit/blockbench-types/types/index.d.ts"/>
+/// <reference types="blockbench-types"/>
 /// <reference path="./blockbenchTypeMods.d.ts"/>
 
 declare module '*.png' {

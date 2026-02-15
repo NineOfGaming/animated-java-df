@@ -4,6 +4,7 @@ import { getCurrentVersion, getLatestVersion } from './versionManager'
 
 import download from 'download'
 import type { Unzipped } from 'fflate'
+import * as fs from 'fs'
 import index from '../../assets/vanillaAssetOverrides/index.json'
 
 import {

@@ -1,3 +1,4 @@
+import * as fs from 'fs'
 import { sanitizeStorageKey } from 'src/util/minecraftUtil'
 import { registerCodec } from 'src/util/moddingTools'
 import { translate } from 'src/util/translation'

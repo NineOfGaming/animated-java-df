@@ -1,3 +1,6 @@
+import * as fs from 'fs'
+import * as pathModule from 'path'
+
 export function normalizePath(path: string): string {
 	return path.replace(/\\/g, '/')
 }
@@ -36,8 +39,8 @@ export function isRelativePath(path: string) {
 
 export function resolveRelativePath(path: string) {
 	if (!Project?.save_path) return
-	const saveFolder = PathModule.dirname(Project.save_path)
-	return PathModule.resolve(saveFolder, path)
+	const saveFolder = pathModule.dirname(Project.save_path)
+	return pathModule.resolve(saveFolder, path)
 }
 
 export function resolvePath(path: string): string {
@@ -57,7 +60,7 @@ export function swapPathRoot(path: string, oldRoot: string, newRoot: string) {
 	oldRoot = normalizePath(oldRoot)
 	newRoot = normalizePath(newRoot)
 	if (path.startsWith(oldRoot)) {
-		return PathModule.join(newRoot, path.slice(oldRoot.length))
+		return pathModule.join(newRoot, path.slice(oldRoot.length))
 	}
 	throw new Error(`Cannot swap path root! Path "${path}" does not start with "${oldRoot}"`)
 }

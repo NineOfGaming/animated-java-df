@@ -1,3 +1,4 @@
+import * as fs from 'fs'
 import { normalizePath } from '../util/fileUtil'
 import { IntentionalExportError, IntentionalExportErrorFromInvalidFile } from './errors'
 import { sortObjectKeys } from './util'

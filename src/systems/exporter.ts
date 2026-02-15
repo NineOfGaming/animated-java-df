@@ -1,3 +1,4 @@
+import * as fs from 'fs'
 import { Stopwatch } from 'src/util/stopwatch'
 import { projectTargetVersionIsAtLeast, saveBlueprint } from '../formats/blueprint'
 import { blueprintSettingErrors } from '../formats/blueprint/settings'

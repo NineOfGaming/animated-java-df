@@ -1,3 +1,4 @@
+import * as fs from 'fs'
 import type { ResourcePackCompiler } from '.'
 import { PROGRESS_DESCRIPTION } from '../../interface/dialog/exportProgress'
 import { isResourcePackPath, sanitizeStorageKey } from '../../util/minecraftUtil'
