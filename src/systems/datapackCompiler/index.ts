@@ -1,4 +1,5 @@
 import { NbtByte, NbtCompound, NbtFloat, NbtInt, NbtList, NbtString } from 'deepslate/lib/nbt'
+import * as fs from 'fs'
 import { projectTargetVersionIsAtLeast } from 'src/formats/blueprint'
 import { MAX_PROGRESS, PROGRESS, PROGRESS_DESCRIPTION } from '../../interface/dialog/exportProgress'
 import { DisplayEntityConfig } from '../../nodeConfigs'

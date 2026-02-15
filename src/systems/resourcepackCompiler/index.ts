@@ -1,3 +1,4 @@
+import * as fs from 'fs'
 import { MAX_PROGRESS, PROGRESS, PROGRESS_DESCRIPTION } from '../../interface/dialog/exportProgress'
 import { getNextSupportedVersion, getResourcePackFormat } from '../../util/minecraftUtil'
 import { IntentionalExportError } from '../exporter'

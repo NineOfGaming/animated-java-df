@@ -1,3 +1,4 @@
+import * as fs from 'fs'
 import * as pathjs from 'path'
 import { assetsLoaded } from 'src/systems/minecraft/assetManager'
 import { validateBlockState } from 'src/systems/minecraft/blockModelManager'

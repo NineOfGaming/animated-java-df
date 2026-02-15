@@ -1,3 +1,4 @@
+import * as fs from 'fs'
 import { BLUEPRINT_CODEC } from 'src/formats/blueprint/codec'
 import { openBlueprintSettingsDialog } from 'src/interface/dialog/blueprintSettings'
 import { activeProjectIsBlueprintFormat, saveBlueprint } from '../formats/blueprint'

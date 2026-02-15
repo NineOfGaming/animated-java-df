@@ -1,4 +1,6 @@
 <script lang="ts" context="module">
+	import * as fs from 'fs'
+	import * as PathModule from 'path'
 	import { defaultValues } from '../formats/blueprint/settings'
 	import mcbFiles from '../systems/datapackCompiler/mcbFiles'
 	import { MINECRAFT_REGISTRY } from '../systems/minecraft/registryManager'

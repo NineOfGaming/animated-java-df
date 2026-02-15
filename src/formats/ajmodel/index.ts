@@ -1,3 +1,4 @@
+import * as fs from 'fs'
 import { registerModelLoader } from 'src/util/moddingTools'
 import { mountSvelteComponent } from 'src/util/mountSvelteComponent'
 import { openUnexpectedErrorDialog } from '../../interface/dialog/unexpectedError'

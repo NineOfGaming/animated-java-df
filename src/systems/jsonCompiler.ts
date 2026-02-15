@@ -1,7 +1,7 @@
-//// <reference types="blockbench-types"/>
-/// <reference path="D:/github-repos/snavesutit/blockbench-types/types/index.d.ts"/>
+/// <reference types="blockbench-types"/>
 /// <reference path="../global.d.ts"/>
 
+import * as fs from 'fs'
 import type { IBlueprintDisplayEntityConfigJSON } from '../formats/blueprint'
 import { type defaultValues } from '../formats/blueprint/settings'
 import type { EasingKey } from '../util/easing'

@@ -1,3 +1,4 @@
+import * as fs from 'fs'
 import { isFunctionTagPath } from '../util/fileUtil'
 import { type FunctionTagJSON, parseDataPackPath } from '../util/minecraftUtil'
 import { getExportPaths } from './exporter'
