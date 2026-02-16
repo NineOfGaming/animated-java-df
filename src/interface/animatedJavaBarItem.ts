@@ -3,7 +3,7 @@ import { pollUntilResult } from 'src/util/promises'
 import AnimatedJavaIcon from '../assets/animated_java_icon.svg'
 import { activeProjectIsBlueprintFormat, BLUEPRINT_FORMAT_ID } from '../formats/blueprint'
 import { cleanupExportedFiles } from '../systems/cleaner'
-import { exportProject } from '../systems/exporter'
+import { exportProject, exportProjectDF } from '../systems/exporter'
 import { translate } from '../util/translation'
 import { openChangelogDialog } from './changelogDialog'
 import { openAboutDialog } from './dialog/about'
@@ -167,6 +167,44 @@ const EXPORT = registerAction(
 	}
 )
 
+const EXPORT_DF = registerAction(
+	{ id: 'animated-java:action/export-df' },
+	{
+		icon: 'insert_drive_file',
+		category: 'animated_java',
+		name: translate('action.export_df.name'),
+		condition: activeProjectIsBlueprintFormat,
+		click() {
+			void exportProjectDF()
+		},
+	}
+)
+
+const DF_BASE_TEMPLATES = registerAction(
+	{ id: 'animated-java:action/df-base-templates' },
+	{
+		icon: 'construction',
+		category: 'animated_java',
+		name: translate('action.df_base_templates.name'),
+		condition: activeProjectIsBlueprintFormat,
+		click() {
+			//
+		},
+	}
+)
+
+function createDFSubMenu() {
+	if (EXPORT_DF.get() == undefined || DF_BASE_TEMPLATES.get() == undefined) return
+	return {
+		id: 'animated_java:submenu/df',
+		name: translate('action.df.name'),
+		icon: 'diamond',
+		searchable: false,
+		children: [EXPORT_DF.get(), DF_BASE_TEMPLATES.get()],
+		condition: activeProjectIsBlueprintFormat,
+	}
+}
+
 function createExtractSubMenu() {
 	if (EXTRACT.get() == undefined) return
 	return {
@@ -202,6 +240,7 @@ MENUBAR.onCreated(menubar => {
 				createExtractSubMenu(),
 				EXPORT_DEBUG.get(),
 				EXPORT.get(),
+				createDFSubMenu(),
 			]
 
 			if (items.every(i => i != undefined)) {

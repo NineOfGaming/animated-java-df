@@ -10,9 +10,10 @@ import { isResourcePackPath } from '../util/minecraftUtil'
 import { translate } from '../util/translation'
 import { Variant } from '../variants'
 import { hashAnimations, renderProjectAnimations } from './animationRenderer'
-import { exportPluginBlueprint } from './pluginCompiler'
 import compileDataPack from './datapackCompiler'
+import { DFExportError, exportJSONDF } from './df/dfexporter'
 import { IntentionalExportError } from './errors'
+import { exportPluginBlueprint } from './pluginCompiler'
 import resourcepackCompiler from './resourcepackCompiler'
 import { hashRig, renderRig } from './rigRenderer'
 import { isCubeValid } from './util'
@@ -49,10 +50,12 @@ export function getExportPaths() {
 interface ExportProjectOptions {
 	forceSave?: boolean
 	debugMode?: boolean
+	df?: boolean
 }
 
 async function actuallyExportProject({
 	forceSave = true,
+	df = false,
 	debugMode = false,
 }: ExportProjectOptions = {}): Promise<boolean> {
 	const aj = Project!.animated_java
@@ -130,6 +133,16 @@ async function actuallyExportProject({
 			debugMode,
 		})
 
+		if (df) {
+			await exportJSONDF({
+				rig,
+				animations,
+				displayItemPath,
+				textureExportFolder,
+				modelExportFolder,
+			})
+		}
+
 		if (!aj.enable_plugin_mode && aj.data_pack_export_mode !== 'none') {
 			await compileDataPack([aj.target_minecraft_version], {
 				rig,
@@ -154,6 +167,14 @@ async function actuallyExportProject({
 		return true
 	} catch (e: any) {
 		console.error(e)
+		if (e instanceof DFExportError) {
+			Blockbench.showMessageBox({
+				title: translate('misc.failed_to_export.title'),
+				message: e.message,
+				buttons: [translate('misc.failed_to_export.button')],
+			})
+			return false
+		}
 		if (e instanceof IntentionalExportError) {
 			Blockbench.showMessageBox(
 				{
@@ -173,6 +194,10 @@ async function actuallyExportProject({
 		stopwatch.debug()
 	}
 	return false
+}
+
+export async function exportProjectDF() {
+	await exportProject({ df: true })
 }
 
 export async function exportProject(options?: ExportProjectOptions): Promise<boolean> {
