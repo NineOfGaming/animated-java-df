@@ -36,6 +36,12 @@
 <br/>
 <br/>
 
+> [!NOTE]
+> This repository is a fork of Animated Java implementing support for exporting projects to DiamondFire.  
+> The exporter is still incomplete, so expect rough edges and breaking changes.
+>
+> This fork is based on https://github.com/Millo5/animated-java-df except its not 250+ commits behind and (planned to be) more user friendly.
+
 # ❔ What is Animated Java?
 
 Animated Java is a cutting-edge Blockbench plugin designed for Minecraft: Java Edition mapmakers and Data Pack developers. By leveraging Blockbench's familiar interface, and the power of Java Edition's Data Pack and Resource Pack systems, Animated Java allows you to create complex animations with ease!
