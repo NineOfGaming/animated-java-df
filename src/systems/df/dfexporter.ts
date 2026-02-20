@@ -1,53 +1,14 @@
 import { IRenderedAnimation } from '../animationRenderer'
 import { IRenderedRig } from '../rigRenderer'
+import { textToGZip } from './compression'
+import { CodeClientError, sendTemplatesToCodeClient } from './codeclient'
 import { compressMatrix, rotateMatrix } from './dfdata'
+import type { CodeBlock, CodeTemplate } from './types'
 
 export class DFExportError extends Error {
 	constructor(message: string, public cause?: unknown) {
 		super(message)
 		this.name = 'DFExportError'
-	}
-}
-
-async function loadPako() {
-	return new Promise((resolve, reject) => {
-		const script = document.createElement('script')
-		script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pako/2.0.3/pako.min.js'
-		script.onload = resolve
-		script.onerror = reject
-		document.head.appendChild(script)
-	})
-}
-
-interface PakoApi {
-	gzip: (input: unknown, options?: unknown) => Uint8Array | string
-}
-
-async function getPakoApi(): Promise<PakoApi> {
-	const globalObj = globalThis as unknown as {
-		pako?: PakoApi
-		PAKO?: PakoApi
-	}
-
-	if (globalObj.pako?.gzip) return globalObj.pako
-	if (globalObj.PAKO?.gzip) return globalObj.PAKO
-
-	await loadPako()
-
-	if (globalObj.pako?.gzip) return globalObj.pako
-	if (globalObj.PAKO?.gzip) return globalObj.PAKO
-
-	throw new Error('Failed to load pako gzip API')
-}
-
-async function textToGZip(input: any): Promise<string> {
-	try {
-		const pako = await getPakoApi()
-		const uint8array = pako.gzip(input, { to: 'string' })
-
-		return Buffer.from(uint8array).toString('base64')
-	} catch (e) {
-		throw new DFExportError('Failed to compress DF export payload.', e)
 	}
 }
 
@@ -77,132 +38,6 @@ type RawAnimationData = Record<
 		nodes: Record<string, string>
 	}
 >
-
-interface CodeBlock {
-	id: string
-	block: string
-	args?: {
-		items?: Array<{
-			item: {
-				id: string
-				data: any
-			}
-			slot: number
-		}>
-	}
-	data?: string
-	action?: string
-}
-interface CodeTemplate {
-	blocks: CodeBlock[]
-}
-
-const CODECLIENT_API_URL = 'ws://localhost:31375'
-const CODECLIENT_GIVE_RESPONSE_TIMEOUT_MS = 5_000
-
-function escapeSnbtString(value: string) {
-	return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
-}
-
-async function buildCodeClientGiveCommand(template: CodeTemplate, modelName: string) {
-	const zippedTemplate = await textToGZip(JSON.stringify(template))
-	const templatePayload = JSON.stringify({
-		author: 'Animated Java',
-		name: modelName,
-		version: 1,
-		code: zippedTemplate,
-	})
-	const escapedTemplatePayload = escapeSnbtString(templatePayload)
-
-	return (
-		'give ' +
-		`{count:1,id:"minecraft:ender_chest",components:{"minecraft:custom_name":[{"text":"Init Rig ${modelName}","color":"#6DC7E9","italic":false}],"minecraft:custom_data":{PublicBukkitValues:{"hypercube:codetemplatedata":"${escapedTemplatePayload}"}}}}`
-	)
-}
-
-async function sendTemplateToCodeClient(template: CodeTemplate, modelName: string) {
-	const giveCommand = await buildCodeClientGiveCommand(template, modelName)
-
-	await new Promise<void>((resolve, reject) => {
-		let hasSettled = false
-		let hasSentGive = false
-		let responseTimeout: ReturnType<typeof setTimeout> | undefined
-		const socket = new WebSocket(CODECLIENT_API_URL)
-
-		const cleanup = () => {
-			if (responseTimeout) clearTimeout(responseTimeout)
-			responseTimeout = undefined
-		}
-
-		const fail = (message: string, error?: unknown) => {
-			if (hasSettled) return
-			hasSettled = true
-			cleanup()
-			try {
-				socket.close()
-			} catch {
-				/* no-op */
-			}
-			reject(new DFExportError(message, error))
-		}
-
-		socket.addEventListener('open', () => {
-			hasSentGive = true
-			socket.send(giveCommand)
-			responseTimeout = setTimeout(() => {
-				if (hasSettled) return
-				hasSettled = true
-				cleanup()
-				socket.close()
-				resolve()
-			}, CODECLIENT_GIVE_RESPONSE_TIMEOUT_MS)
-		})
-
-		socket.addEventListener('message', event => {
-			const response = String(event.data).trim()
-			if (!response || hasSettled) return
-
-			if (response === 'unauthed') {
-				fail('CodeClient rejected the export due to missing permissions.')
-				return
-			}
-
-			if (response === 'not creative mode') {
-				fail('CodeClient can only give items while the player is in creative mode.')
-				return
-			}
-
-			if (response === 'invalid nbt') {
-				fail('CodeClient rejected the generated template item payload as invalid NBT.')
-				return
-			}
-
-			if (response === 'invalid') {
-				fail('CodeClient rejected the API command as invalid.')
-				return
-			}
-		})
-
-		socket.addEventListener('error', error => {
-			fail(
-				'Failed to connect to CodeClient API. Enable the API in CodeClient settings and make sure CodeClient is running.',
-				error
-			)
-		})
-
-		socket.addEventListener('close', () => {
-			if (!hasSettled) {
-				if (hasSentGive) {
-					hasSettled = true
-					cleanup()
-					resolve()
-					return
-				}
-				fail('CodeClient API connection closed before the template item was delivered.')
-			}
-		})
-	})
-}
 
 export async function exportJSONDF(options: {
 	rig: IRenderedRig
@@ -290,8 +125,23 @@ export async function exportJSONDF(options: {
 	// }
 
 	const codeTemplate = buildCodeTemplate(dataForTempalte, animationData)
-
-	await sendTemplateToCodeClient(codeTemplate, Project!.name)
+	try {
+		await sendTemplatesToCodeClient(
+			[
+				{
+					template: codeTemplate,
+					templateName: Project!.name,
+					displayName: `Init Rig ${Project!.name}`,
+				},
+			],
+			textToGZip
+		)
+	} catch (error) {
+		if (error instanceof CodeClientError) {
+			throw new DFExportError(error.message, error.cause)
+		}
+		throw error
+	}
 }
 
 function buildCodeTemplate(

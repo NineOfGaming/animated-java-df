@@ -2,8 +2,14 @@ import { registerAction, registerBarMenu } from 'src/util/moddingTools'
 import { pollUntilResult } from 'src/util/promises'
 import AnimatedJavaIcon from '../assets/animated_java_icon.svg'
 import { activeProjectIsBlueprintFormat, BLUEPRINT_FORMAT_ID } from '../formats/blueprint'
+import { DF_BASE_HELPER_DEFINITIONS } from '../systems/df/baseTemplates'
 import { cleanupExportedFiles } from '../systems/cleaner'
-import { exportProject, exportProjectDF } from '../systems/exporter'
+import {
+	exportDFBaseTemplate,
+	exportDFBaseTemplates,
+	exportProject,
+	exportProjectDF,
+} from '../systems/exporter'
 import { translate } from '../util/translation'
 import { openChangelogDialog } from './changelogDialog'
 import { openAboutDialog } from './dialog/about'
@@ -180,27 +186,80 @@ const EXPORT_DF = registerAction(
 	}
 )
 
-const DF_BASE_TEMPLATES = registerAction(
-	{ id: 'animated-java:action/df-base-templates' },
+const DF_BASE_TEMPLATES_ALL = registerAction(
+	{ id: 'animated-java:action/df-base-templates-all' },
 	{
-		icon: 'construction',
+		icon: 'all_inclusive',
 		category: 'animated_java',
-		name: translate('action.df_base_templates.name'),
+		name: translate('action.df_base_templates_all.name'),
 		condition: activeProjectIsBlueprintFormat,
 		click() {
-			//
+			void exportDFBaseTemplates()
 		},
 	}
 )
 
+const DF_BASE_TEMPLATE_SPECIFIC_ACTIONS = DF_BASE_HELPER_DEFINITIONS.map(definition =>
+	registerAction(
+		{
+			id: `animated-java:action/df-base-template-${definition.templateName
+				.replace(/([a-z0-9])([A-Z])/g, '$1-$2')
+				.toLowerCase()}`,
+		},
+		{
+			icon: 'description',
+			category: 'animated_java',
+			name: definition.displayName ?? definition.templateName,
+			condition: activeProjectIsBlueprintFormat,
+			click() {
+				void exportDFBaseTemplate(definition.templateName)
+			},
+		}
+	)
+)
+
+function createDFBaseTemplatesSpecificSubMenu() {
+	const specificTemplateItems = DF_BASE_TEMPLATE_SPECIFIC_ACTIONS.map(action => action.get())
+	if (specificTemplateItems.some(item => item == undefined)) return
+
+	return {
+		id: 'animated_java:submenu/df/base_templates_specific',
+		name: translate('action.df_base_templates_specific.name'),
+		icon: 'description',
+		searchable: false,
+		children: specificTemplateItems,
+		condition: activeProjectIsBlueprintFormat,
+	}
+}
+
+function createDFBaseTemplatesSubMenu() {
+	if (DF_BASE_TEMPLATES_ALL.get() == undefined) return
+
+	const specificSubMenu = createDFBaseTemplatesSpecificSubMenu()
+	if (specificSubMenu == undefined) return
+
+	return {
+		id: 'animated_java:submenu/df/base_templates',
+		name: translate('action.df_base_templates.name'),
+		icon: 'construction',
+		searchable: false,
+		children: [DF_BASE_TEMPLATES_ALL.get(), specificSubMenu],
+		condition: activeProjectIsBlueprintFormat,
+	}
+}
+
 function createDFSubMenu() {
-	if (EXPORT_DF.get() == undefined || DF_BASE_TEMPLATES.get() == undefined) return
+	if (EXPORT_DF.get() == undefined) return
+
+	const baseTemplatesSubMenu = createDFBaseTemplatesSubMenu()
+	if (baseTemplatesSubMenu == undefined) return
+
 	return {
 		id: 'animated_java:submenu/df',
 		name: translate('action.df.name'),
 		icon: 'diamond',
 		searchable: false,
-		children: [EXPORT_DF.get(), DF_BASE_TEMPLATES.get()],
+		children: [EXPORT_DF.get(), baseTemplatesSubMenu],
 		condition: activeProjectIsBlueprintFormat,
 	}
 }

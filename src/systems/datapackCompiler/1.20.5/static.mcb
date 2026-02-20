@@ -672,6 +672,26 @@ IF (has_locators || has_cameras) {
 	}
 }
 
+function apply_default_pose {
+	# Changes the pose of the rig to the the default pose with interpolation
+	debug assert executed_as_root_entity <%TAGS.PROJECT_ROOT(export_namespace)%>
+
+	IF (has_locators || has_cameras) {
+		function ./zzz/reset_floating_entities
+	}
+
+	REPEAT (Object.values(rig.nodes).filter(node => BONE_TYPES.includes(node.type))) as node {
+		execute \
+			on passengers \
+			if entity @s[tag=<%TAGS.PROJECT_NODE_NAMED(export_namespace, node.storage_name)%>] \
+		run \
+			data merge entity @s { \
+				transformation: <%matrixToNbtFloatArray(node.default_transform.matrix).toString()%>, \
+				start_interpolation: 0 \
+			}
+	}
+}
+
 function set_default_pose {
 	# Changes the pose of the rig to the the default pose without interpolation
 	debug assert executed_as_root_entity <%TAGS.PROJECT_ROOT(export_namespace)%>

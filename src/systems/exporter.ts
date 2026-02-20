@@ -11,6 +11,7 @@ import { translate } from '../util/translation'
 import { Variant } from '../variants'
 import { hashAnimations, renderProjectAnimations } from './animationRenderer'
 import compileDataPack from './datapackCompiler'
+import { sendDFBaseTemplateToCodeClient, sendDFBaseTemplatesToCodeClient } from './df/baseTemplates'
 import { DFExportError, exportJSONDF } from './df/dfexporter'
 import resourcepackCompiler from './resourcepackCompiler'
 import { hashRig, renderRig } from './rigRenderer'
@@ -228,6 +229,42 @@ async function actuallyExportProject({
 
 export async function exportProjectDF() {
 	await exportProject({ df: true })
+}
+
+export async function exportDFBaseTemplates() {
+	try {
+		await sendDFBaseTemplatesToCodeClient()
+		Blockbench.showQuickMessage('DF base templates delivered successfully!', 2000)
+	} catch (error) {
+		console.error(error)
+		if (error instanceof Error) {
+			Blockbench.showMessageBox({
+				title: translate('misc.failed_to_export.title'),
+				message: error.message,
+				buttons: [translate('misc.failed_to_export.button')],
+			})
+			return
+		}
+		openUnexpectedErrorDialog(new Error(String(error)))
+	}
+}
+
+export async function exportDFBaseTemplate(templateName: string) {
+	try {
+		await sendDFBaseTemplateToCodeClient(templateName)
+		Blockbench.showQuickMessage(`DF base template "${templateName}" delivered successfully!`, 2000)
+	} catch (error) {
+		console.error(error)
+		if (error instanceof Error) {
+			Blockbench.showMessageBox({
+				title: translate('misc.failed_to_export.title'),
+				message: error.message,
+				buttons: [translate('misc.failed_to_export.button')],
+			})
+			return
+		}
+		openUnexpectedErrorDialog(new Error(String(error)))
+	}
 }
 
 export async function exportProject(options?: ExportProjectOptions): Promise<boolean> {
