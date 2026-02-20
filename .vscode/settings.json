@@ -42,5 +42,7 @@
 	},
 	"mc-dp-icons.enableNamespaceIcons": false,
 	"mc-dp-icons.enableChristmasIcons": "Disable",
-	"mc-dp-icons.enableLoadTickAutoChange": false
+	"mc-dp-icons.enableLoadTickAutoChange": false,
+	"spellright.language": ["de", "en"],
+	"spellright.documentTypes": ["markdown", "latex", "plaintext"]
 }

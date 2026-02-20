@@ -12,7 +12,9 @@ animated_java.action.open_locator_config.name: Locator Config
 animated_java.action.export.name: Export
 animated_java.action.export_df.name: Export
 animated_java.action.df.name: DiamondFire
-animated_java.action.df_base_templates.name: Get Base Templates
+animated_java.action.df_base_templates.name: Base Templates
+animated_java.action.df_base_templates_all.name: Get All Templates
+animated_java.action.df_base_templates_specific.name: Get Specific Template
 animated_java.action.export_debug.name: Export (Debug)
 animated_java.action.export_all.name: Export All
 animated_java.action.export_all.description: |-

@@ -1,5 +1,3 @@
-
-
 // Rotate from column-major to row-major order
 export function rotateMatrix(matrix: number[]): number[] {
     return [
