@@ -42,6 +42,10 @@
 > This repository is a fork of Animated Java implementing support for exporting projects to DiamondFire.  
 > The exporter is still incomplete, so expect rough edges and breaking changes.
 >
+> To install download the animated_java.js file from the [latest release](https://github.com/NineOfGaming/animated-java-df/releases/latest).  
+> In blockbench navigate to `File` > `Plugins`, then click `Load Plugin from File` and select the downloaded file.  
+> (Animated Java is not compatible with blockbench 5.x so you will need to download [version 4.12.6](https://github.com/JannisX11/blockbench/releases/tag/v4.12.6))
+>
 > To export, install the [CodeClient](https://modrinth.com/mod/codeclient) mod manually or using your launcher of choice.  
 > After it is installed, join DiamondFire and run /ccconfig or open the config menu via a mod manager.  
 > Under the General tab, turn on CodeClient API and click Save Changes. Restart the game if prompted to do so.
