@@ -3,7 +3,6 @@ import type { CodeClientTemplateItem } from './types'
 // https://github.com/DFOnline/CodeClient/wiki/API
 
 const CODECLIENT_API_URL = 'ws://localhost:31375'
-const CODECLIENT_GIVE_RESPONSE_TIMEOUT_MS = 5_000
 
 function escapeSnbtString(value: string) {
 	return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
@@ -59,31 +58,40 @@ export class CodeClientError extends Error {
 
 interface CodeClientSocketOptions {
 	url?: string
-	giveResponseTimeoutMs?: number
 }
 
 export class CodeClientSocket {
 	private socket: WebSocket | undefined
 	private connecting: Promise<WebSocket> | undefined
-	private sendQueue: Promise<void> = Promise.resolve()
 	private readonly url: string
-	private readonly giveResponseTimeoutMs: number
 
 	constructor(options: CodeClientSocketOptions = {}) {
 		this.url = options.url ?? CODECLIENT_API_URL
-		this.giveResponseTimeoutMs =
-			options.giveResponseTimeoutMs ?? CODECLIENT_GIVE_RESPONSE_TIMEOUT_MS
 	}
 
 	async sendGiveCommand(giveCommand: string): Promise<void> {
-		const sendTask = this.sendQueue.then(() => this.sendGiveCommandInternal(giveCommand))
-		this.sendQueue = sendTask.catch(() => undefined)
-		return sendTask
+		const socket = await this.getSocket()
+		try {
+			socket.send(giveCommand)
+		} catch (error) {
+			throw new CodeClientError(
+				'Failed to send command to CodeClient API. Ensure the CodeClient API connection is open.',
+				error
+			)
+		}
 	}
 
 	async sendGiveCommands(giveCommands: string[]): Promise<void> {
+		const socket = await this.getSocket()
 		for (const command of giveCommands) {
-			await this.sendGiveCommand(command)
+			try {
+				socket.send(command)
+			} catch (error) {
+				throw new CodeClientError(
+					'Failed to send command to CodeClient API. Ensure the CodeClient API connection is open.',
+					error
+				)
+			}
 		}
 	}
 
@@ -96,88 +104,6 @@ export class CodeClientSocket {
 		}
 		this.socket = undefined
 		this.connecting = undefined
-	}
-
-	private async sendGiveCommandInternal(giveCommand: string): Promise<void> {
-		const socket = await this.getSocket()
-		await new Promise<void>((resolve, reject) => {
-			let hasSettled = false
-			let responseTimeout: ReturnType<typeof setTimeout> | undefined
-
-			const cleanup = () => {
-				if (responseTimeout) clearTimeout(responseTimeout)
-				responseTimeout = undefined
-				socket.removeEventListener('message', onMessage)
-				socket.removeEventListener('close', onClose)
-				socket.removeEventListener('error', onError)
-			}
-
-			const fail = (message: string, error?: unknown) => {
-				if (hasSettled) return
-				hasSettled = true
-				cleanup()
-				reject(new CodeClientError(message, error))
-			}
-
-			const resolveSuccess = () => {
-				if (hasSettled) return
-				hasSettled = true
-				cleanup()
-				resolve()
-			}
-
-			const onMessage = (event: MessageEvent) => {
-				const response = String(event.data).trim()
-				if (!response || hasSettled) return
-
-				if (response === 'unauthed') {
-					fail('CodeClient rejected the export due to missing permissions.')
-					return
-				}
-
-				if (response === 'not creative mode') {
-					fail('CodeClient can only give items while the player is in creative mode.')
-					return
-				}
-
-				if (response === 'invalid nbt') {
-					fail('CodeClient rejected the generated template item payload as invalid NBT.')
-					return
-				}
-
-				if (response === 'invalid') {
-					fail('CodeClient rejected the API command as invalid.')
-					return
-				}
-			}
-
-			const onClose = () => {
-				resolveSuccess()
-			}
-
-			const onError = (error: Event) => {
-				fail(
-					'Failed to connect to CodeClient API. Enable the API in CodeClient settings and make sure CodeClient is running.',
-					error
-				)
-			}
-
-			socket.addEventListener('message', onMessage)
-			socket.addEventListener('close', onClose)
-			socket.addEventListener('error', onError)
-
-			try {
-				socket.send(giveCommand)
-			} catch (error) {
-				fail(
-					'Failed to send command to CodeClient API. Ensure the CodeClient API connection is open.',
-					error
-				)
-				return
-			}
-
-			responseTimeout = setTimeout(resolveSuccess, this.giveResponseTimeoutMs)
-		})
 	}
 
 	private async getSocket(): Promise<WebSocket> {

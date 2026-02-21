@@ -110,8 +110,8 @@ export const DF_BASE_HELPER_DEFINITIONS: DFHelperTemplateDefinition[] = [
 	},
 	{
 		templateName: 'RigSpawn',
-		displayName: 'Spawn Entity',
-		functionName: 'RigSpawnEntity',
+		displayName: 'Spawn',
+		functionName: 'RigSpawn',
 		codetemplateData: `'{"author":"Millo5","name":"§b§lFunction §3» §brig.spawn","version":1,"code":"H4sIAAAAAAAA/71W30/bMBD+VyJLkzYpqmDApEXaA6N0q8b2sJW9DBQZ5xosXDuyHVhV5X/n7DRt2pA2pSpPrS++u+/O3/2YkTuh2IMh0b8Z4QmJyjMJ578RGeeS4ZHqFC/hHQuT+W385yVOyx9CklBLq1sonfUH8a+vo+jk89lZyFQubXQc8iS6IRMugWk6tpGRfDwGHUOa3pCCFEVIjFCWREdFuOYkkzGImhdJJ4BikJZbDga/2GnmJI9U4yETuaaCRGMqDIREZZYruRAsHR13dYTfFi7sf7vVBRoAwzT3UtS5dECnwbBfi/JjV+cTlXjxHv5/OhOr7k+6ukc2LJ2Xh92c/8nokwxQk3rBEsJpA8KdiC1NaxhUZWTgLDsc+DkiQxN850kC0vGTza8kU0TM2TqDaxn/VNwWlW2iedozDhrxMF6qAAM2Lhm1pQjKS+ukQZFhqswbsn4jw2U+aVo4InWuOuyLYL+0o9aQAbWvBC2RKbvgftGIS+07/PLeU/dDzxk1Nau5NPQRErKpEtupMNL5kgnnQqin4IobG1zcU5l6P4ssDZS+pOy+mZwGKRoqy/Rqyh7A5TPhGhiqIBTPvHlNVCYPwyKXu57vP/u9yeaHbea/bDPNPlhvYCuJ+wZ2iAZG+CytqUjRTDzXeF06ygZ02FSshOW7lwusz03WHpkfRdM3ja1rs/wBkAUXudaIMfitLK0gViGOQECmtG0Np71aaqoWQwZXHVfU2HLgHTZd1Vzcnwwb62udD2AvcmOVJ/pho36xBH3U8Uohdoz0jYLcr93VVrrO75qiv/riMu/L19e48LSAbwv8PMPWnvylAkfMpgnAhCorrNsIYFSIuNs+vfPTdXz9LdXScQAkMKa5sBvX2K2rTHP13Kpyur65Uckn1GIEt8UzprKFjsoMAAA="}'`,
 	},
 ]
