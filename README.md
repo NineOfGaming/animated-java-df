@@ -42,6 +42,10 @@
 > This repository is a fork of Animated Java implementing support for exporting projects to DiamondFire.  
 > The exporter is still incomplete, so expect rough edges and breaking changes.
 >
+> To export, install the [CodeClient](https://modrinth.com/mod/codeclient) mod manually or using your launcher of choice.  
+> After it is installed, join DiamondFire and run /ccconfig or open the config menu via a mod manager.  
+> Under the General tab, turn on CodeClient API and click Save Changes. Restart the game if prompted to do so.
+>
 > This fork is based on https://github.com/Millo5/animated-java-df except its not 250+ commits behind and (planned to be) more user friendly.
 >
 > For any questions or discussions, please join my [Discord](https://discord.gg/vpWfwa28Sm) server.
