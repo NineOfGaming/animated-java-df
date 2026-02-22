@@ -1,5 +1,5 @@
 import { normalizePath } from '../util/fileUtil'
-import { IntentionalExportError, IntentionalExportErrorFromInvalidFile } from './exporter'
+import { IntentionalExportError, IntentionalExportErrorFromInvalidFile } from './errors'
 import { sortObjectKeys } from './util'
 
 export enum SUPPORTED_MINECRAFT_VERSIONS {

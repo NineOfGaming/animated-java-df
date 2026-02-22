@@ -91,11 +91,6 @@ export const BLUEPRINT_CODEC = registerCodec(
 				}
 			}
 
-			// FIXME - Temporarily disable plugin mode for 1.8.0
-			if (Project.animated_java.enable_plugin_mode) {
-				Project.animated_java.enable_plugin_mode = false
-			}
-
 			Project.last_used_export_namespace =
 				model.meta?.last_used_export_namespace ?? Project.animated_java.export_namespace
 

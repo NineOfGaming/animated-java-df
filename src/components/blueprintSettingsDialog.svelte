@@ -271,7 +271,7 @@
 			console.error(e)
 			return {
 				type: 'error',
-				message: translate('dialog.blueprint_settings.json_file.error.file_does_not_exist'),
+				message: translate('dialog.blueprint_settings.json_file.error.invalid_path'),
 			}
 		}
 		switch (true) {
@@ -333,8 +333,6 @@
 	// Export Settings
 	export let exportNamespace: Valuable<string>
 	export let enablePluginMode: Valuable<boolean>
-	// FIXME - Force-disable plugin mode for now
-	$enablePluginMode = false
 	export let resourcePackExportMode: Valuable<string>
 	export let dataPackExportMode: Valuable<string>
 	export let targetMinecraftVersion: Valuable<string>
@@ -433,12 +431,12 @@
 	valueChecker={exportNamespaceChecker}
 />
 
-<!-- <Checkbox
-		label={translate('dialog.blueprint_settings.enable_plugin_mode.title')}
-		tooltip={translate('dialog.blueprint_settings.enable_plugin_mode.description')}
-		bind:checked={enablePluginMode}
-		defaultValue={defaultValues.enable_plugin_mode}
-	/> -->
+<Checkbox
+	label={translate('dialog.blueprint_settings.enable_plugin_mode.title')}
+	tooltip={translate('dialog.blueprint_settings.enable_plugin_mode.description')}
+	bind:checked={enablePluginMode}
+	defaultValue={defaultValues.enable_plugin_mode}
+/>
 
 {#if $enablePluginMode}
 	<LineInput
