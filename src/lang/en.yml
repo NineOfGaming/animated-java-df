@@ -275,6 +275,7 @@ animated_java.dialog.blueprint_settings.baked_animations.description: |-
 
 animated_java.dialog.blueprint_settings.json_file.title: JSON File
 animated_java.dialog.blueprint_settings.json_file.description: The path to the JSON file to export the project to.
+animated_java.dialog.blueprint_settings.json_file.error.invalid_path: Invalid file path!
 animated_java.dialog.blueprint_settings.json_file.error.no_file_selected: No file selected!
 animated_java.dialog.blueprint_settings.json_file.error.not_a_file: The selected path is not a file!
 

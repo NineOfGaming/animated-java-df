@@ -1,6 +1,6 @@
 import { MAX_PROGRESS, PROGRESS, PROGRESS_DESCRIPTION } from '../../interface/dialog/exportProgress'
 import { getNextSupportedVersion, getResourcePackFormat } from '../../util/minecraftUtil'
-import { IntentionalExportError } from '../exporter'
+import { IntentionalExportError } from '../errors'
 import { type IRenderedRig } from '../rigRenderer'
 import type { ExportedFile } from '../util'
 
