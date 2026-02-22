@@ -49,7 +49,7 @@
 > To export, install the [CodeClient](https://modrinth.com/mod/codeclient) mod manually or using your launcher of choice.  
 > After it is installed, join DiamondFire and run /ccconfig or open the config menu via a mod manager.  
 > Under the General tab, turn on CodeClient API and click Save Changes. Restart the game if prompted to do so.
-> Finally in Blockbench click `Animated Java` > `DiamondFire` > `Export` and your done.
+> Finally in Blockbench click `Animated Java` > `DiamondFire` > `Export` and your done.  
 > (you need to be in dev mode on DiamondFire for the export to work)
 >
 > This fork is based on https://github.com/Millo5/animated-java-df except its not 250+ commits behind and (planned to be) more user friendly.
