@@ -51,6 +51,7 @@ import {
 	parseResourcePackPath,
 	toSmallCaps,
 } from './util/minecraftUtil'
+import { checkForUpdates } from './util/updateChecker'
 import { Variant } from './variants'
 
 declare global {
@@ -160,4 +161,6 @@ EVENTS.PLUGIN_FINISHED_LOADING.subscribe(() => {
 		localStorage.setItem('animated-java-last-version', PACKAGE.version)
 		openChangelogDialog()
 	}
+
+	void checkForUpdates()
 })
