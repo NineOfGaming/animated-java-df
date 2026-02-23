@@ -8,6 +8,24 @@ function escapeSnbtString(value: string) {
 	return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
 }
 
+function buildLoreComponent(description?: string) {
+	if (!description) return ''
+	const lines = description
+		.split(/\r?\n/)
+		.map(line => line.trim())
+		.filter(line => line.length > 0)
+	if (lines.length === 0) return ''
+
+	const loreEntries = lines
+		.map(
+			line =>
+				`{"text":"${escapeSnbtString(line)}","color":"gray","italic":false}`
+		)
+		.join(',')
+
+	return `,"minecraft:lore":[${loreEntries}]`
+}
+
 function normalizeCodeTemplateData(value: string) {
 	let normalized = value.trim()
 	if (
@@ -197,6 +215,7 @@ export async function buildCodeClientGiveCommand(
 		const generatedPayload = JSON.stringify({
 			author,
 			name: templateName,
+			...(item.description ? { description: item.description } : {}),
 			version,
 			code: zippedTemplate,
 		})
@@ -220,10 +239,11 @@ export async function buildCodeClientGiveCommand(
 		PublicBukkitValues: publicBukkitValues,
 	}
 	const serializedCustomData = JSON.stringify(customData)
+	const loreComponent = buildLoreComponent(item.description)
 
 	return (
 		'give ' +
-		`{count:1,id:"${itemId}",components:{"minecraft:custom_name":[{"text":"${displayName}","color":"#6DC7E9","italic":false}],"minecraft:custom_data":${serializedCustomData}}}`
+		`{count:1,id:"${itemId}",components:{"minecraft:custom_name":[{"text":"${displayName}","color":"#6DC7E9","italic":false}]${loreComponent},"minecraft:custom_data":${serializedCustomData}}}`
 	)
 }
 

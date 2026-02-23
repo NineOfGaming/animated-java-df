@@ -1,9 +1,10 @@
 import { registerAction, registerBarMenu } from 'src/util/moddingTools'
 import { pollUntilResult } from 'src/util/promises'
+import type { ResourceLocation } from 'src/util/resourceLocation'
 import AnimatedJavaIcon from '../assets/animated_java_icon.svg'
 import { activeProjectIsBlueprintFormat, BLUEPRINT_FORMAT_ID } from '../formats/blueprint'
-import { DF_BASE_HELPER_DEFINITIONS } from '../systems/df/baseTemplates'
 import { cleanupExportedFiles } from '../systems/cleaner'
+import { DF_BASE_HELPER_DEFINITIONS, getDFBaseTemplateCount } from '../systems/df/baseTemplates'
 import {
 	exportDFBaseTemplate,
 	exportDFBaseTemplates,
@@ -191,7 +192,7 @@ const DF_BASE_TEMPLATES_ALL = registerAction(
 	{
 		icon: 'all_inclusive',
 		category: 'animated_java',
-		name: translate('action.df_base_templates_all.name'),
+		name: `${translate('action.df_base_templates_all.name')} (${getDFBaseTemplateCount()})`,
 		condition: activeProjectIsBlueprintFormat,
 		click() {
 			void exportDFBaseTemplates()
@@ -199,12 +200,48 @@ const DF_BASE_TEMPLATES_ALL = registerAction(
 	}
 )
 
+function getDFTemplateActionId(definition: (typeof DF_BASE_HELPER_DEFINITIONS)[number]) {
+	return `animated-java:action/df-base-template-${definition.templateName
+		.replace(/([a-z0-9])([A-Z])/g, '$1-$2')
+		.toLowerCase()}`
+}
+
+const DF_TEMPLATE_ACTION_TOOLTIPS = new Map(
+	DF_BASE_HELPER_DEFINITIONS.map(definition => [
+		getDFTemplateActionId(definition),
+		definition.description?.replace(/\s+/g, ' ').trim(),
+	]).filter(([, description]) => Boolean(description)) as Array<[string, string]>
+)
+
+function getMenuActionId(element: Element): string | undefined {
+	const htmlElement = element as HTMLElement
+	return (
+		element.getAttribute('menu_item') ??
+		element.getAttribute('action') ??
+		element.getAttribute('data-action') ??
+		htmlElement.dataset.menuItem ??
+		htmlElement.dataset.action ??
+		undefined
+	)
+}
+
+function applyDFTemplateTooltips(root: ParentNode = document) {
+	const menuNodes = root.querySelectorAll<HTMLElement>('li, .menu_node, .menu_item')
+	for (const node of menuNodes) {
+		const actionId = getMenuActionId(node)
+		if (!actionId) continue
+		const tooltip = DF_TEMPLATE_ACTION_TOOLTIPS.get(actionId)
+		if (!tooltip) continue
+		node.title = tooltip
+	}
+}
+
 const DF_BASE_TEMPLATE_SPECIFIC_ACTIONS = DF_BASE_HELPER_DEFINITIONS.map(definition =>
 	registerAction(
 		{
-			id: `animated-java:action/df-base-template-${definition.templateName
-				.replace(/([a-z0-9])([A-Z])/g, '$1-$2')
-				.toLowerCase()}`,
+			id: getDFTemplateActionId(
+				definition
+			) as ResourceLocation.Validate<'animated-java:action/df-base-template-rig-animate'>,
 		},
 		{
 			icon: 'description',
@@ -317,4 +354,16 @@ MENUBAR.onCreated(menubar => {
 		// Overwrite structure
 		menubar.structure = items
 	})
+
+	applyDFTemplateTooltips()
+	const tooltipObserver = new MutationObserver(mutations => {
+		for (const mutation of mutations) {
+			for (const node of mutation.addedNodes) {
+				if (!(node instanceof Element)) continue
+				applyDFTemplateTooltips(node)
+			}
+		}
+	})
+	tooltipObserver.observe(document.body, { childList: true, subtree: true })
+	MENUBAR.onDeleted(() => tooltipObserver.disconnect())
 })
