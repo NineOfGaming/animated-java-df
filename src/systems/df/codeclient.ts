@@ -17,10 +17,7 @@ function buildLoreComponent(description?: string) {
 	if (lines.length === 0) return ''
 
 	const loreEntries = lines
-		.map(
-			line =>
-				`{"text":"${escapeSnbtString(line)}","color":"gray","italic":false}`
-		)
+		.map(line => `{"text":"${escapeSnbtString(line)}","color":"gray","italic":false}`)
 		.join(',')
 
 	return `,"minecraft:lore":[${loreEntries}]`
@@ -76,40 +73,81 @@ export class CodeClientError extends Error {
 
 interface CodeClientSocketOptions {
 	url?: string
+	postSendResponseWindowMs?: number
 }
 
 export class CodeClientSocket {
 	private socket: WebSocket | undefined
 	private connecting: Promise<WebSocket> | undefined
 	private readonly url: string
+	private readonly postSendResponseWindowMs: number
 
 	constructor(options: CodeClientSocketOptions = {}) {
 		this.url = options.url ?? CODECLIENT_API_URL
+		this.postSendResponseWindowMs = options.postSendResponseWindowMs ?? 1500
 	}
 
 	async sendGiveCommand(giveCommand: string): Promise<void> {
-		const socket = await this.getSocket()
-		try {
-			socket.send(giveCommand)
-		} catch (error) {
-			throw new CodeClientError(
-				'Failed to send command to CodeClient API. Ensure the CodeClient API connection is open.',
-				error
-			)
-		}
+		await this.sendGiveCommands([giveCommand])
 	}
 
 	async sendGiveCommands(giveCommands: string[]): Promise<void> {
 		const socket = await this.getSocket()
+		const errors: string[] = []
+		const parseTasks: Array<Promise<void>> = []
+		const onMessage = (event: MessageEvent) => {
+			parseTasks.push(
+				this.extractMessageTexts(event.data).then(messages => {
+					for (const message of messages) {
+						const normalized = message.trim().toLowerCase()
+
+						if (
+							normalized.includes('not creative mode') ||
+							(normalized.includes('creative mode') &&
+								(normalized.includes('not ') || normalized.includes('must be')))
+						) {
+							errors.push(
+								'CodeClient rejected the `give` command because you are not in creative mode.'
+							)
+							continue
+						}
+
+						if (normalized.includes('unauthed')) {
+							errors.push(
+								'CodeClient rejected the `give` command due to insufficient API scopes (received `unauthed`).'
+							)
+							continue
+						}
+
+						if (normalized.includes('invalid nbt')) {
+							errors.push(
+								'CodeClient rejected the `give` command due to invalid NBT data.'
+							)
+						}
+					}
+				})
+			)
+		}
+
+		socket.addEventListener('message', onMessage)
 		for (const command of giveCommands) {
 			try {
 				socket.send(command)
 			} catch (error) {
+				socket.removeEventListener('message', onMessage)
 				throw new CodeClientError(
 					'Failed to send command to CodeClient API. Ensure the CodeClient API connection is open.',
 					error
 				)
 			}
+		}
+
+		await new Promise(resolve => setTimeout(resolve, this.postSendResponseWindowMs))
+		socket.removeEventListener('message', onMessage)
+		await Promise.allSettled(parseTasks)
+
+		if (errors.length > 0) {
+			throw new CodeClientError(errors[0])
 		}
 	}
 
@@ -185,6 +223,54 @@ export class CodeClientSocket {
 		})
 
 		return this.connecting
+	}
+
+	private async extractMessageTexts(data: unknown): Promise<string[]> {
+		let rawText: string | undefined
+		if (typeof data === 'string') {
+			rawText = data
+		} else if (data instanceof Blob) {
+			rawText = await data.text()
+		} else if (data instanceof ArrayBuffer) {
+			rawText = new TextDecoder().decode(data)
+		} else if (ArrayBuffer.isView(data)) {
+			rawText = new TextDecoder().decode(data)
+		}
+
+		if (!rawText) return []
+		return this.expandPotentialJsonMessages(rawText)
+	}
+
+	private expandPotentialJsonMessages(rawText: string): string[] {
+		const messages = [rawText]
+		try {
+			const parsed: unknown = JSON.parse(rawText)
+			const extracted: string[] = []
+			this.collectNestedStrings(parsed, extracted)
+			for (const text of extracted) {
+				messages.push(text)
+			}
+		} catch {
+			// no-op, payload was plain text
+		}
+		return messages
+	}
+
+	private collectNestedStrings(value: unknown, output: string[]) {
+		if (typeof value === 'string') {
+			output.push(value)
+			return
+		}
+		if (!value || typeof value !== 'object') return
+		if (Array.isArray(value)) {
+			for (const item of value) {
+				this.collectNestedStrings(item, output)
+			}
+			return
+		}
+		for (const child of Object.values(value)) {
+			this.collectNestedStrings(child, output)
+		}
 	}
 }
 
