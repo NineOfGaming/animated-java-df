@@ -197,7 +197,12 @@ async function actuallyExportProject({
 		Project!.last_used_export_namespace = aj.export_namespace
 
 		if (forceSave) saveBlueprint()
-		Blockbench.showQuickMessage('Project exported successfully!', 2000)
+		Blockbench.showQuickMessage(
+			df
+				? 'Project exported. DF template delivery was attempted via CodeClient.'
+				: 'Project exported successfully!',
+			2000
+		)
 
 		return true
 	} catch (e: any) {
