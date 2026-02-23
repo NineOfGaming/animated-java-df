@@ -12,6 +12,7 @@ import {
 	exportProjectDF,
 } from '../systems/exporter'
 import { translate } from '../util/translation'
+import { checkForUpdates } from '../util/updateChecker'
 import { openChangelogDialog } from './changelogDialog'
 import { openAboutDialog } from './dialog/about'
 import { openBlueprintSettingsDialog } from './dialog/blueprintSettings'
@@ -68,6 +69,18 @@ const OPEN_CHANGELOG = registerAction(
 		name: translate('action.open_changelog.name'),
 		click() {
 			openChangelogDialog()
+		},
+	}
+)
+
+const CHECK_FOR_UPDATES = registerAction(
+	{ id: 'animated-java:action/check-for-updates' },
+	{
+		icon: 'update',
+		category: 'animated_java',
+		name: translate('action.check_for_updates.name'),
+		click() {
+			void checkForUpdates({ manual: true })
 		},
 	}
 )
@@ -327,6 +340,7 @@ MENUBAR.onCreated(menubar => {
 			const items = [
 				OPEN_ABOUT.get(),
 				OPEN_DOCUMENTATION.get(),
+				CHECK_FOR_UPDATES.get(),
 				OPEN_CHANGELOG.get(),
 				SEPARATOR_A,
 				EXPORT_ALL_DEBUG.get(),

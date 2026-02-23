@@ -6,6 +6,7 @@ animated_java.format.blueprint.name: Blueprint
 animated_java.action.open_blueprint_settings.name: Blueprint Settings
 animated_java.action.open_documentation.name: Documentation
 animated_java.action.open_changelog.name: Changelog
+animated_java.action.check_for_updates.name: Check for Updates
 animated_java.action.open_about.name: About
 animated_java.action.open_display_entity_config.name: Display Entity Config
 animated_java.action.open_locator_config.name: Locator Config
@@ -38,6 +39,19 @@ animated_java.popup.loading.success: Animated Java Loaded Successfully!
 animated_java.popup.loading.offline: |-
   Animated Java Failed to Connect!
   Some features may be unavailable.
+
+animated_java.update_checker.dialog.title: Animated Java DF Update Available
+animated_java.update_checker.dialog.message: |-
+  A new Animated Java DF version is available.
+
+  Installed: v{0}
+  Latest: v{1}
+animated_java.update_checker.dialog.button.download: Download
+animated_java.update_checker.dialog.button.later: Later
+animated_java.update_checker.dialog.button.skip_version: Skip version
+animated_java.update_checker.quick_message.ignored: Ignored Animated Java DF v{0}.
+animated_java.update_checker.quick_message.up_to_date: Animated Java DF is up to date (v{0}).
+animated_java.update_checker.quick_message.failed: Failed to check for updates.
 
 animated_java.popup.installed_popup.title: Thank you for installing!
 animated_java.popup.installed_popup.close_button: Let's Get Animating!
