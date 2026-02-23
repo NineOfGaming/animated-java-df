@@ -23,6 +23,7 @@ export interface CodeClientTemplateItem {
 	codetemplateData?: string
 	templateName: string
 	displayName?: string
+	description?: string
 	author?: string
 	version?: number
 	itemId?: string
