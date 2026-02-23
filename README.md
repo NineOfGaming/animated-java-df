@@ -50,6 +50,7 @@ The exporter is still work in progress, so expect rough edges and occasional bre
 1. Download `animated_java.js` from the [latest release](https://github.com/NineOfGaming/animated-java-df/releases/latest).
 2. In Blockbench, go to `File` > `Plugins` and click `Load Plugin from File` next to the search bar.
 3. Select the downloaded file.
+4. Restart Blockbench.
 
 Note: Use Blockbench **4.12.6** (Animated Java is not compatible with 5.x): [Download 4.12.6](https://github.com/JannisX11/blockbench/releases/tag/v4.12.6).
 
