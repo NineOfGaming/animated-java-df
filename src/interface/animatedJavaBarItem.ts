@@ -206,7 +206,6 @@ const DF_BASE_TEMPLATES_ALL = registerAction(
 		icon: 'all_inclusive',
 		category: 'animated_java',
 		name: `${translate('action.df_base_templates_all.name')} (${getDFBaseTemplateCount()})`,
-		condition: activeProjectIsBlueprintFormat,
 		click() {
 			void exportDFBaseTemplates()
 		},
@@ -260,7 +259,6 @@ const DF_BASE_TEMPLATE_SPECIFIC_ACTIONS = DF_BASE_HELPER_DEFINITIONS.map(definit
 			icon: 'description',
 			category: 'animated_java',
 			name: definition.displayName ?? definition.templateName,
-			condition: activeProjectIsBlueprintFormat,
 			click() {
 				void exportDFBaseTemplate(definition.templateName)
 			},
@@ -278,7 +276,6 @@ function createDFBaseTemplatesSpecificSubMenu() {
 		icon: 'description',
 		searchable: false,
 		children: specificTemplateItems,
-		condition: activeProjectIsBlueprintFormat,
 	}
 }
 
@@ -294,7 +291,6 @@ function createDFBaseTemplatesSubMenu() {
 		icon: 'construction',
 		searchable: false,
 		children: [DF_BASE_TEMPLATES_ALL.get(), specificSubMenu],
-		condition: activeProjectIsBlueprintFormat,
 	}
 }
 
@@ -310,7 +306,6 @@ function createDFSubMenu() {
 		icon: 'diamond',
 		searchable: false,
 		children: [EXPORT_DF.get(), baseTemplatesSubMenu],
-		condition: activeProjectIsBlueprintFormat,
 	}
 }
 
