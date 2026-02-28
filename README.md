@@ -57,10 +57,12 @@ Note: Use Blockbench **4.12.6** (Animated Java is not compatible with 5.x): [Dow
 ### Export to DiamondFire
 
 1. Install [CodeClient](https://modrinth.com/mod/codeclient) (manually or via a launcher).
-2. Join DiamondFire, run `/ccconfig` (or open CodeClient config using mod menu).
-3. In the `General` tab, enable **CodeClient API**, then save.
-4. Restart Minecraft if prompted to do so.
-5. In Blockbench, click `Animated Java` > `DiamondFire` > `Export`.
+2. Enable CodeClient API
+    - run `/ccconfig CodeClientAPI true`.  
+      **or**
+    - run `/ccconfig` or open the config menu using mod menu, under the `General` tab, enable **CodeClient API**.
+3. Restart Minecraft.
+4. In Blockbench, click `Animated Java` > `DiamondFire` > `Export`.
 
 Note: You must be in dev mode on DiamondFire for export to work.
 
