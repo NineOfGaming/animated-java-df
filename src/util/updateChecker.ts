@@ -73,7 +73,6 @@ function showUpdateAvailableMessage(latestVersion: string, releaseUrl: string) {
 	Blockbench.showMessageBox(
 		{
 			title: translate('update_checker.dialog.title'),
-			// Blockbench message boxes render HTML, so convert line breaks explicitly.
 			message: translatedMessage.replace(/\r?\n/g, '<br>'),
 			buttons: [
 				translate('update_checker.dialog.button.download'),
