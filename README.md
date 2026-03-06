@@ -58,9 +58,9 @@ This repository is a fork of Animated Java with support for exporting projects t
 
 1. Install [CodeClient](https://modrinth.com/mod/codeclient) (manually or via a launcher).
 2. Enable CodeClient API
-    - run `/ccconfig CodeClientAPI true`.  
+    - Run `/ccconfig CodeClientAPI true`.  
       **or**
-    - run `/ccconfig` or open the config menu using mod menu, under the `General` tab, enable **CodeClient API**.
+    - Open the config menu using `/ccconfig` or mod menu, under the `General` tab, enable **CodeClient API**.
 3. Restart Minecraft.
 4. In Blockbench, click `Animated Java` > `DiamondFire` > `Export`.
 
@@ -69,7 +69,7 @@ This repository is a fork of Animated Java with support for exporting projects t
 
 ### Credits
 
-This fork is based on [Millo5/animated-java-df](https://github.com/Millo5/animated-java-df), with the goal of being more up to date and more user friendly.
+This fork is based on [Millo5/animated-java-df](https://github.com/Millo5/animated-java-df), with the goal of being more up to date, user friendly and feature complete.
 
 For questions or discussion: join the [Discord server](https://discord.gg/vpWfwa28Sm).
 
