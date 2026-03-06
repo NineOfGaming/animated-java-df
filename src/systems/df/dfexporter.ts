@@ -1,5 +1,7 @@
 import { IRenderedAnimation } from '../animationRenderer'
-import { IRenderedRig } from '../rigRenderer'
+import type { IBlueprintDisplayEntityConfigJSON } from '../../formats/blueprint'
+import { DisplayEntityConfig } from '../../nodeConfigs'
+import type { AnyRenderedNode, IRenderedRig, IRenderedVariantModel } from '../rigRenderer'
 import { CodeClientError, sendTemplatesToCodeClient } from './codeclient'
 import { textToGZip } from './compression'
 import { compressMatrix, rotateMatrix } from './dfdata'
@@ -14,15 +16,8 @@ export class DFExportError extends Error {
 
 interface Node {
 	name: string
-	type:
-		| 'bone'
-		| 'struct'
-		| 'camera'
-		| 'locator'
-		| 'text_display'
-		| 'item_display'
-		| 'block_display'
-	data?: any
+	type: AnyRenderedNode['type']
+	data?: Record<string, unknown>
 }
 
 interface DFTemplateData {
@@ -39,6 +34,343 @@ type RawAnimationData = Record<
 	}
 >
 
+type SupportedDFNodeType = 'bone' | 'text_display' | 'item_display' | 'block_display'
+
+const DF_EXPORTED_NODE_TYPES: ReadonlySet<AnyRenderedNode['type']> = new Set([
+	'text_display',
+	'item_display',
+	'block_display',
+])
+
+const DF_HYPERCUBE_TYPE_BY_NODE_TYPE: Record<SupportedDFNodeType, string> = {
+	bone: 'model',
+	text_display: 'text',
+	item_display: 'item',
+	block_display: 'block',
+}
+
+function ensureNamespacedId(id: string): string {
+	const trimmed = id.trim()
+	if (!trimmed) return 'minecraft:stone'
+	return trimmed.includes(':') ? trimmed : `minecraft:${trimmed}`
+}
+
+function blockMaterialToItemId(blockMaterial: string): string {
+	return parseBlockMaterial(blockMaterial).itemId
+}
+
+function parseBlockMaterial(blockMaterial: string): { itemId: string; states?: string } {
+	const trimmed = blockMaterial.trim()
+	if (!trimmed) {
+		return { itemId: 'minecraft:stone' }
+	}
+
+	const firstBracket = trimmed.indexOf('[')
+	if (firstBracket === -1) {
+		return { itemId: ensureNamespacedId(trimmed) }
+	}
+
+	const itemId = ensureNamespacedId(trimmed.slice(0, firstBracket).trim() || 'minecraft:stone')
+	const lastBracket = trimmed.lastIndexOf(']')
+	const states = (
+		lastBracket > firstBracket
+			? trimmed.slice(firstBracket + 1, lastBracket)
+			: trimmed.slice(firstBracket + 1)
+	).trim()
+
+	return states ? { itemId, states } : { itemId }
+}
+
+function escapeSnbtString(value: string): string {
+	return value
+		.replace(/\\/g, '\\\\')
+		.replace(/"/g, '\\"')
+		.replace(/\n/g, '\\n')
+		.replace(/\r/g, '\\r')
+		.replace(/\t/g, '\\t')
+}
+
+function normalizeJsonText(rawText: string): string {
+	const trimmed = rawText.trim()
+	if (!trimmed) return JSON.stringify(' ')
+	try {
+		JSON.parse(trimmed)
+		return trimmed
+	} catch {
+		return JSON.stringify(rawText)
+	}
+}
+
+function normalizeTextTagValue(rawText: string): string {
+	const trimmed = rawText.trim()
+	if (!trimmed) return ''
+	try {
+		const parsed = JSON.parse(trimmed)
+		if (typeof parsed === 'string') return parsed
+	} catch {
+		// keep raw text if it's not valid JSON
+	}
+	return rawText
+}
+
+function normalizeRgbHex(color: string): string {
+	const trimmed = color.trim()
+	if (/^#[0-9a-fA-F]{8}$/.test(trimmed)) {
+		return `#${trimmed.slice(3)}`
+	}
+	if (/^#[0-9a-fA-F]{6}$/.test(trimmed)) {
+		return trimmed
+	}
+	return '#000000'
+}
+
+type FlatNodeTagPrimitive = string | number | boolean
+
+function sanitizeTagKeyPart(part: string): string {
+	const sanitized = part
+		.trim()
+		.replace(/[^a-zA-Z0-9_]+/g, '_')
+		.replace(/^_+|_+$/g, '')
+	return sanitized || 'value'
+}
+
+function flattenNodeDataToTags(
+	value: unknown,
+	currentPath: string[] = [],
+	out: Record<string, FlatNodeTagPrimitive> = {}
+): Record<string, FlatNodeTagPrimitive> {
+	if (value === null || value === undefined) {
+		return out
+	}
+
+	if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+		const key = currentPath.map(sanitizeTagKeyPart).join('_')
+		if (key) {
+			out[key] = value
+		}
+		return out
+	}
+
+	if (Array.isArray(value)) {
+		for (let i = 0; i < value.length; i++) {
+			flattenNodeDataToTags(value[i], [...currentPath, `i${i}`], out)
+		}
+		return out
+	}
+
+	if (typeof value === 'object') {
+		for (const [key, nestedValue] of Object.entries(value as Record<string, unknown>)) {
+			flattenNodeDataToTags(nestedValue, [...currentPath, key], out)
+		}
+		return out
+	}
+
+	return out
+}
+
+function primitiveToString(value: FlatNodeTagPrimitive): string {
+	if (typeof value === 'boolean') return value ? 'true' : 'false'
+	return String(value)
+}
+
+function resolveDisplayConfigWithDefaults(
+	config?: IBlueprintDisplayEntityConfigJSON
+): Record<string, string | number | boolean> {
+	const resolved = DisplayEntityConfig.fromJSON(config ?? {})
+	return {
+		on_apply_function: resolved.onApplyFunction,
+		billboard: resolved.billboard,
+		override_brightness: resolved.overrideBrightness,
+		brightness_override: resolved.brightnessOverride,
+		enchanted: resolved.enchanted,
+		glowing: resolved.glowing,
+		override_glow_color: resolved.overrideGlowColor,
+		glow_color: resolved.glowColor,
+		invisible: resolved.invisible,
+		shadow_radius: resolved.shadowRadius,
+		shadow_strength: resolved.shadowStrength,
+	}
+}
+
+function resolveVariantDisplayConfigWithDefaults(
+	defaultConfig: IBlueprintDisplayEntityConfigJSON | undefined,
+	variantConfig: IBlueprintDisplayEntityConfigJSON | undefined
+): Record<string, string | number | boolean> {
+	const resolved = DisplayEntityConfig.fromJSON(defaultConfig ?? {})
+	if (variantConfig) {
+		resolved.inheritFrom(DisplayEntityConfig.fromJSON(variantConfig))
+	}
+	return {
+		on_apply_function: resolved.onApplyFunction,
+		billboard: resolved.billboard,
+		override_brightness: resolved.overrideBrightness,
+		brightness_override: resolved.brightnessOverride,
+		enchanted: resolved.enchanted,
+		glowing: resolved.glowing,
+		override_glow_color: resolved.overrideGlowColor,
+		glow_color: resolved.glowColor,
+		invisible: resolved.invisible,
+		shadow_radius: resolved.shadowRadius,
+		shadow_strength: resolved.shadowStrength,
+	}
+}
+
+function serializeDisplayNodeCommon(
+	node: Extract<AnyRenderedNode, { type: 'bone' | 'text_display' | 'item_display' | 'block_display' }>
+): Record<string, unknown> {
+	const defaultConfig = resolveDisplayConfigWithDefaults(node.configs?.default)
+	const variantConfigs = Object.fromEntries(
+		Object.entries(node.configs?.variants ?? {}).map(([variantId, variantConfig]) => {
+			return [
+				variantId,
+				resolveVariantDisplayConfigWithDefaults(node.configs?.default, variantConfig),
+			]
+		})
+	)
+
+	return {
+		storage_name: node.storage_name,
+		parent: node.parent,
+		base_scale: node.base_scale,
+		...defaultConfig,
+		...(Object.keys(variantConfigs).length > 0 ? { variant_configs: variantConfigs } : {}),
+	}
+}
+
+function serializeNodeForDF(node: AnyRenderedNode, defaultVariantModel?: IRenderedVariantModel): Node | undefined {
+	if (!DF_EXPORTED_NODE_TYPES.has(node.type)) {
+		return
+	}
+
+	switch (node.type) {
+		case 'bone': {
+			if (!defaultVariantModel) return
+			return {
+				name: node.name,
+				type: node.type,
+				data: {
+					...serializeDisplayNodeCommon(node),
+					material: ensureNamespacedId(Project!.animated_java.display_item),
+					item_model: defaultVariantModel.item_model,
+				},
+			}
+		}
+		case 'text_display': {
+			return {
+				name: node.name,
+				type: node.type,
+				data: {
+					...serializeDisplayNodeCommon(node),
+					text: normalizeTextTagValue(node.text),
+					line_width: node.line_width,
+					background_color: node.background_color,
+					background_color_rgb: normalizeRgbHex(node.background_color),
+					background_alpha: node.background_alpha,
+					align: node.align,
+					shadow: node.shadow,
+					see_through: node.see_through,
+				},
+			}
+		}
+		case 'item_display': {
+			return {
+				name: node.name,
+				type: node.type,
+				data: {
+					...serializeDisplayNodeCommon(node),
+					material: ensureNamespacedId(node.item || 'minecraft:stone'),
+					item_display: node.item_display,
+				},
+			}
+		}
+		case 'block_display': {
+			const blockMaterial = node.block || 'minecraft:stone'
+			const parsedBlockMaterial = parseBlockMaterial(blockMaterial)
+			return {
+				name: node.name,
+				type: node.type,
+				data: {
+					...serializeDisplayNodeCommon(node),
+					material: blockMaterial,
+					...(parsedBlockMaterial.states ? { block_states: parsedBlockMaterial.states } : {}),
+				},
+			}
+		}
+		default:
+			return
+	}
+}
+
+function buildNodeItemSNBT(nodeData: Node, fallbackItemMaterial: string): string | undefined {
+	if (
+		nodeData.type !== 'bone' &&
+		nodeData.type !== 'text_display' &&
+		nodeData.type !== 'item_display' &&
+		nodeData.type !== 'block_display'
+	) {
+		return
+	}
+
+	const hypercubeType = DF_HYPERCUBE_TYPE_BY_NODE_TYPE[nodeData.type]
+	const flatNodeData = flattenNodeDataToTags(nodeData.data ?? {})
+	const customDataTags: Record<string, FlatNodeTagPrimitive> = {
+		...flatNodeData,
+		id: nodeData.name,
+		type: hypercubeType,
+	}
+
+	const bukkitValues: string[] = Object.entries(customDataTags).map(([key, value]) => {
+		return `"hypercube:${escapeSnbtString(key)}":"${escapeSnbtString(primitiveToString(value))}"`
+	})
+
+	const components: string[] = [`"minecraft:custom_data":{PublicBukkitValues:{${bukkitValues.join(',')}}}`]
+
+	let itemId = ensureNamespacedId(fallbackItemMaterial)
+
+	switch (nodeData.type) {
+		case 'bone': {
+			const itemModel = nodeData.data?.item_model
+			const material = nodeData.data?.material
+			if (typeof itemModel === 'string' && itemModel.length > 0) {
+				components.push(`"minecraft:item_model":"${escapeSnbtString(itemModel)}"`)
+			}
+			if (typeof material === 'string' && material.length > 0) {
+				itemId = ensureNamespacedId(material)
+			}
+			break
+		}
+		case 'text_display': {
+			itemId = 'minecraft:name_tag'
+			const textRaw =
+				typeof nodeData.data?.text === 'string' ? nodeData.data.text : JSON.stringify(' ')
+			const normalizedText = normalizeJsonText(textRaw)
+			components.push(`"minecraft:custom_name":"${escapeSnbtString(normalizedText)}"`)
+			break
+		}
+		case 'item_display': {
+			const material = nodeData.data?.material
+			itemId =
+				typeof material === 'string' && material.length > 0
+					? ensureNamespacedId(material)
+					: 'minecraft:stone'
+			if (nodeData.data?.enchanted === true) {
+				components.push(`"minecraft:enchantment_glint_override":1b`)
+			}
+			break
+		}
+		case 'block_display': {
+			const material = nodeData.data?.material
+			itemId =
+				typeof material === 'string' && material.length > 0
+					? blockMaterialToItemId(material)
+					: 'minecraft:stone'
+			break
+		}
+	}
+
+	return `{components:{${components.join(',')}},count:1,id:"${escapeSnbtString(itemId)}"}`
+}
+
 export async function exportJSONDF(options: {
 	rig: IRenderedRig
 	animations: IRenderedAnimation[]
@@ -49,34 +381,16 @@ export async function exportJSONDF(options: {
 	const { rig, animations, displayItemPath } = options
 
 	const nodes: Record<string, Node> = {}
+	const defaultVariant = rig.variants[Object.keys(rig.variants)[0]]
 	for (const [uuid, node] of Object.entries(rig.nodes)) {
-		nodes[uuid] = {
-			name: node.name,
-			type: node.type,
-			data: {},
-		}
-
-		if (node.type === 'item_display') {
-			nodes[uuid].data = {
-				material: node.item || 'minecraft:stone',
-			}
-		}
-
-		if (node.type === 'block_display') {
-			nodes[uuid].data = {
-				material: node.block || 'minecraft:stone',
-			}
-		}
-	}
-	for (const [uuid, info] of Object.entries(rig.variants[Object.keys(rig.variants)[0]].models)) {
-		nodes[uuid].data = {
-			item_model: info.item_model,
-		}
+		const renderedNode = serializeNodeForDF(node, defaultVariant?.models[uuid])
+		if (!renderedNode) continue
+		nodes[uuid] = renderedNode
 	}
 
-	const item = displayItemPath.split('\\').pop()?.replace('.json', '') ?? 'stone'
+	const item = displayItemPath.split(/[\\/]/).pop()?.replace('.json', '') ?? 'stone'
 
-	const dataForTempalte: DFTemplateData = {
+	const dataForTemplate: DFTemplateData = {
 		model_name: Project!.name,
 		item_material: item,
 		nodes,
@@ -118,17 +432,7 @@ export async function exportJSONDF(options: {
 		animationData[animation.name].nodes = compressedAnimationData
 	}
 
-	// animationData["default"] = {
-	//     length: 1,
-	//     nodes: {}
-	// }
-	// for (const [uuid, node] of Object.entries(rig.nodes)) {
-	//     const matrix = rotateMatrix(node.default_transform.matrix.elements);
-	//     const compressedMatrix = compressMatrix(rotateMatrix(matrix));
-	//     animationData["default"].nodes[node.name] = await textToGZip(compressedMatrix);
-	// }
-
-	const codeTemplate = buildCodeTemplate(dataForTempalte, animationData)
+	const codeTemplate = buildCodeTemplate(dataForTemplate, animationData)
 	try {
 		await sendTemplatesToCodeClient(
 			[
@@ -222,33 +526,17 @@ function buildCodeTemplate(
 	}
 
 	const slotLimit = 27
-	Object.entries(templateData.nodes).forEach(([_nodeName, nodeData]) => {
-		if (nodeData.type === 'struct') {
-			return // Skip structs
-		}
-
-		const itemData: any = {
-			item: `{components:{\"minecraft:custom_data\":{PublicBukkitValues:{\"hypercube:id\":\"${
-				nodeData.name
-			}\",\"hypercube:type\":\"${nodeData.type}\"}}},count:1,id:\"minecraft:${
-				nodeData.type === 'item_display'
-					? nodeData.data?.material
-					: templateData.item_material
-			}\"}`,
-		}
-
-		if (nodeData.type === 'bone') {
-			itemData.item = `{components:{\"minecraft:custom_data\":{PublicBukkitValues:{\"hypercube:id\":\"${nodeData.name}\",\"hypercube:type\":\"model\"}},\"minecraft:item_model\":\"animated_java:blueprint/${templateData.model_name}/${nodeData.name}\"},count:1,id:\"${templateData.item_material}\"}`
-		} else if (nodeData.type === 'text_display') {
-			itemData.item = `{components:{\"minecraft:custom_data\":{PublicBukkitValues:{\"hypercube:id\":\"${nodeData.name}\",\"hypercube:type\":\"text\"}},\"minecraft:custom_name\":'${nodeData.data?.name}'},count:1,id:\"minecraft:name_tag\"}`
-		} else if (nodeData.type === 'item_display') {
-			itemData.item = `{components:{\"minecraft:custom_data\":{PublicBukkitValues:{\"hypercube:id\":\"${nodeData.name}\",\"hypercube:type\":\"item\"}}},count:1,id:\"${nodeData.data?.material ?? 'minecraft:stone'}\"}`
-		} else if (nodeData.type === 'block_display') {
-			itemData.item = `{components:{\"minecraft:custom_data\":{PublicBukkitValues:{\"hypercube:id\":\"${nodeData.name}\",\"hypercube:type\":\"block\"}}},count:1,id:\"${nodeData.data?.material ?? 'minecraft:stone'}\"}`
-		}
+	for (const nodeData of Object.values(templateData.nodes)) {
+		const itemSnbt = buildNodeItemSNBT(nodeData, templateData.item_material)
+		if (!itemSnbt) continue
 
 		nodesVarBlock.args!.items!.push({
-			item: { id: 'item', data: itemData },
+			item: {
+				id: 'item',
+				data: {
+					item: itemSnbt,
+				},
+			},
 			slot: nodesVarBlock.args!.items!.length,
 		})
 
@@ -269,8 +557,10 @@ function buildCodeTemplate(
 				},
 			}
 		}
-	})
-	if (nodesVarBlock.args!.items!.length > 1) template.blocks.push(nodesVarBlock)
+	}
+	if (nodesVarBlock.action === 'CreateList' || nodesVarBlock.args!.items!.length > 1) {
+		template.blocks.push(nodesVarBlock)
+	}
 
 	for (const [animationName, animation] of Object.entries(rawAnimationData)) {
 		let animationBlock: CodeBlock = {
