@@ -1,7 +1,7 @@
 import { IRenderedAnimation } from '../animationRenderer'
 import { IRenderedRig } from '../rigRenderer'
-import { textToGZip } from './compression'
 import { CodeClientError, sendTemplatesToCodeClient } from './codeclient'
+import { textToGZip } from './compression'
 import { compressMatrix, rotateMatrix } from './dfdata'
 import type { CodeBlock, CodeTemplate } from './types'
 
@@ -91,16 +91,20 @@ export async function exportJSONDF(options: {
 		}
 
 		const cachedAnimationData: Record<string, string[]> = {}
+		const lastKnownMatrixByNode: Record<string, string | undefined> = {}
 		for (const frame of animation.frames) {
 			for (const nodeUuid of Object.keys(nodes)) {
 				const nodeTransform = frame.node_transforms[nodeUuid]
-				if (!nodeTransform) continue
+				if (nodeTransform) {
+					const matrix = nodeTransform.matrix.elements
+					lastKnownMatrixByNode[nodeUuid] = compressMatrix(rotateMatrix(matrix))
+				}
 
-				const matrix = nodeTransform.matrix.elements
-				const newMatrix = compressMatrix(rotateMatrix(matrix))
+				const matrixForFrame = lastKnownMatrixByNode[nodeUuid]
+				if (!matrixForFrame) continue
 
 				cachedAnimationData[nodeUuid] = cachedAnimationData[nodeUuid] || []
-				cachedAnimationData[nodeUuid].push(newMatrix)
+				cachedAnimationData[nodeUuid].push(matrixForFrame)
 			}
 		}
 
@@ -238,18 +242,9 @@ function buildCodeTemplate(
 		} else if (nodeData.type === 'text_display') {
 			itemData.item = `{components:{\"minecraft:custom_data\":{PublicBukkitValues:{\"hypercube:id\":\"${nodeData.name}\",\"hypercube:type\":\"text\"}},\"minecraft:custom_name\":'${nodeData.data?.name}'},count:1,id:\"minecraft:name_tag\"}`
 		} else if (nodeData.type === 'item_display') {
-			itemData.item = `{components:{\"minecraft:custom_data\":{PublicBukkitValues:{\"hypercube:id\":\"${
-				nodeData.name
-			}\",\"hypercube:type\":\"item\"}}},count:1,id:\"${
-				nodeData.data?.material ?? 'minecraft:stone'
-			}\"}`
+			itemData.item = `{components:{\"minecraft:custom_data\":{PublicBukkitValues:{\"hypercube:id\":\"${nodeData.name}\",\"hypercube:type\":\"item\"}}},count:1,id:\"${nodeData.data?.material ?? 'minecraft:stone'}\"}`
 		} else if (nodeData.type === 'block_display') {
-			console.log('!!!!!!!!!!!!!!!!!!', nodeData)
-			itemData.item = `{components:{\"minecraft:custom_data\":{PublicBukkitValues:{\"hypercube:id\":\"${
-				nodeData.name
-			}\",\"hypercube:type\":\"block\"}}},count:1,id:\"${
-				nodeData.data?.material ?? 'minecraft:stone'
-			}\"}`
+			itemData.item = `{components:{\"minecraft:custom_data\":{PublicBukkitValues:{\"hypercube:id\":\"${nodeData.name}\",\"hypercube:type\":\"block\"}}},count:1,id:\"${nodeData.data?.material ?? 'minecraft:stone'}\"}`
 		}
 
 		nodesVarBlock.args!.items!.push({
