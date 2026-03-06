@@ -42,8 +42,7 @@
 
 ### About this fork (`animated-java-df`)
 
-This repository is a fork of Animated Java with support for exporting projects to **DiamondFire**.  
-The exporter is still work in progress, so expect rough edges and occasional breaking changes.
+This repository is a fork of Animated Java with support for exporting projects to **DiamondFire**.
 
 ### Install the plugin
 
@@ -52,7 +51,8 @@ The exporter is still work in progress, so expect rough edges and occasional bre
 3. Select the downloaded file.
 4. Restart Blockbench.
 
-Note: Use Blockbench **4.12.6** (Animated Java is not compatible with 5.x): [Download 4.12.6](https://github.com/JannisX11/blockbench/releases/tag/v4.12.6).
+> [!NOTE]
+> Use Blockbench **4.12.6** (Animated Java is not compatible with 5.x): [Download 4.12.6](https://github.com/JannisX11/blockbench/releases/tag/v4.12.6).
 
 ### Export to DiamondFire
 
@@ -64,7 +64,8 @@ Note: Use Blockbench **4.12.6** (Animated Java is not compatible with 5.x): [Dow
 3. Restart Minecraft.
 4. In Blockbench, click `Animated Java` > `DiamondFire` > `Export`.
 
-Note: You must be in dev mode on DiamondFire for export to work.
+> [!NOTE]
+> You must be in dev mode on DiamondFire for export to work.
 
 ### Credits
 
