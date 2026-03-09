@@ -44,17 +44,21 @@
 
 This repository is a fork of Animated Java with support for exporting projects to **DiamondFire**.
 
-### Install the plugin
+<br/>
+
+## Install the plugin
 
 1. Download `animated_java.js` from the [latest release](https://github.com/NineOfGaming/animated-java-df/releases/latest).
-2. In Blockbench, go to `File` > `Plugins` and click `Load Plugin from File` next to the search bar.
+2. In Blockbench, go to `File > Plugins` and click `Load Plugin from File` next to the search bar.
 3. Select the downloaded file.
 4. Restart Blockbench.
 
 > [!NOTE]
 > Use Blockbench **4.12.6** (Animated Java is not compatible with 5.x): [Download 4.12.6](https://github.com/JannisX11/blockbench/releases/tag/v4.12.6).
 
-### Export to DiamondFire
+<br/>
+
+## Export to DiamondFire
 
 1. Install [CodeClient](https://modrinth.com/mod/codeclient) (manually or via a launcher).
 2. Enable CodeClient API
@@ -62,18 +66,54 @@ This repository is a fork of Animated Java with support for exporting projects t
       **or**
     - Open the config menu using `/ccconfig` or mod menu, under the `General` tab, enable **CodeClient API**.
 3. Restart Minecraft.
-4. In Blockbench, click `Animated Java` > `DiamondFire` > `Export`.
+4. In Blockbench, click `Animated Java > DiamondFire > Export`.
 
 > [!NOTE]
 > You must be in dev mode on DiamondFire for export to work.
 
-### Credits
+<br/>
+
+## Use exported rigs in-game
+
+1. Send both template sets from Blockbench.  
+	- `Animated Java > DiamondFire > Export` sends your project-specific init function as `rig.init.<project_name>`.  
+	- `Animated Java > DiamondFire > Base Templates > Get All Templates` sends the shared helpers (`rig.spawn`, `rig.animate`, etc.).
+2. Initialize each model once (for example in your setup/load code).  
+	- Use `rig.init.rig("<project_name>")` for one model, or `rig.init.rigs(<list>)` for multiple.
+3. Spawn a rig instance where you need it.  
+	- Use `rig.spawn(<entities_return_var>, "<instance_id>", "<project_name>", <location>)`.  
+	- `<instance_id>` is the unique runtime instance key, while `<project_name>` is the exported model id from the previous steps.
+4. Animate the spawned instance.  
+	- Use `rig.animate("<instance_id>", "<project_name>", "<animation_name>", <tick>, <interp_optional>)`.  
+	- `<animation_name>` must match an animation name from your Blockbench project.  
+	- `<tick>` is the animation time; increase it each game tick (`0, 1, 2, ...`) to play the animation over time.  
+	- `<interp_optional>` should always match the amount of ticks waiting between each frame.  
+	- Use `rig.animate.noreset(...)` when you want to keep the rig-entities selection active after animating.  
+	- Use `rig.animate(...)` when you want that selection reset automatically and restore your previous selection.
+5. Removing the rig.  
+	- Use `rig.remove("<instance_id>")`.
+
+> [!NOTE]
+> `rig.spawn` automatically applies animation `default` at tick `0` after spawning.  
+> If you need lower-level control, `rig.load_animation(...)` and `rig.decodeMatrices(...)` are available.
+
+<br/>
+
+## Credits
 
 This fork is based on [Millo5/animated-java-df](https://github.com/Millo5/animated-java-df), with the goal of being more up to date, user friendly and feature complete.
 
+<br/>
+
+## Other
+
 For questions or discussion: join the [Discord server](https://discord.gg/vpWfwa28Sm).
 
+<br/>
+
 ---
+
+<br/>
 
 # ❔ What is Animated Java?
 
