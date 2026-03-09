@@ -126,6 +126,8 @@ function normalizeRgbHex(color: string): string {
 
 type FlatNodeTagPrimitive = string | number | boolean
 
+const ALT_BOOLEAN_TAG_KEYS: ReadonlySet<string> = new Set(['shadow', 'see_through', 'glowing'])
+
 function sanitizeTagKeyPart(part: string): string {
 	const sanitized = part
 		.trim()
@@ -171,6 +173,19 @@ function flattenNodeDataToTags(
 function primitiveToString(value: FlatNodeTagPrimitive): string {
 	if (typeof value === 'boolean') return value ? 'true' : 'false'
 	return String(value)
+}
+
+function appendAltBooleanNodeTags(
+	tags: Record<string, FlatNodeTagPrimitive>
+): Record<string, FlatNodeTagPrimitive> {
+	const tagsWithAltValues: Record<string, FlatNodeTagPrimitive> = { ...tags }
+
+	for (const [key, value] of Object.entries(tags)) {
+		if (!ALT_BOOLEAN_TAG_KEYS.has(key) || typeof value !== 'boolean') continue
+		tagsWithAltValues[`${key}_alt`] = value ? 'enabled' : 'disabled'
+	}
+
+	return tagsWithAltValues
 }
 
 function resolveDisplayConfigWithDefaults(
@@ -314,7 +329,7 @@ function buildNodeItemSNBT(nodeData: Node, fallbackItemMaterial: string): string
 	const hypercubeType = DF_HYPERCUBE_TYPE_BY_NODE_TYPE[nodeData.type]
 	const flatNodeData = flattenNodeDataToTags(nodeData.data ?? {})
 	const customDataTags: Record<string, FlatNodeTagPrimitive> = {
-		...flatNodeData,
+		...appendAltBooleanNodeTags(flatNodeData),
 		id: nodeData.name,
 		type: hypercubeType,
 	}

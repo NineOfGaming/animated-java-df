@@ -200,8 +200,10 @@ const EXPORT_DF = registerAction(
 	}
 )
 
+const DF_BASE_TEMPLATES_ALL_ACTION_ID = 'animated-java:action/df-base-templates-all'
+
 const DF_BASE_TEMPLATES_ALL = registerAction(
-	{ id: 'animated-java:action/df-base-templates-all' },
+	{ id: DF_BASE_TEMPLATES_ALL_ACTION_ID },
 	{
 		icon: 'all_inclusive',
 		category: 'animated_java',
@@ -218,12 +220,32 @@ function getDFTemplateActionId(definition: (typeof DF_BASE_HELPER_DEFINITIONS)[n
 		.toLowerCase()}`
 }
 
-const DF_TEMPLATE_ACTION_TOOLTIPS = new Map(
-	DF_BASE_HELPER_DEFINITIONS.map(definition => [
-		getDFTemplateActionId(definition),
-		definition.description?.replace(/\s+/g, ' ').trim(),
-	]).filter(([, description]) => Boolean(description)) as Array<[string, string]>
+function formatDFTemplateTooltip(description: string): string {
+	return description
+		.replace(/\\n|\/n/g, '\n')
+		.split(/\r?\n/)
+		.map(line => line.replace(/[ \t]+/g, ' ').trim())
+		.join('\n')
+		.trim()
+}
+
+const DF_TEMPLATE_ACTION_TOOLTIPS = new Map<string, string>()
+
+DF_TEMPLATE_ACTION_TOOLTIPS.set(
+	DF_BASE_TEMPLATES_ALL_ACTION_ID,
+	[
+		'Includes these templates:',
+		...DF_BASE_HELPER_DEFINITIONS.map(
+			definition => `- ${definition.displayName ?? definition.templateName}`
+		),
+	].join('\n')
 )
+
+for (const definition of DF_BASE_HELPER_DEFINITIONS) {
+	const tooltip = definition.description && formatDFTemplateTooltip(definition.description)
+	if (!tooltip) continue
+	DF_TEMPLATE_ACTION_TOOLTIPS.set(getDFTemplateActionId(definition), tooltip)
+}
 
 function getMenuActionId(element: Element): string | undefined {
 	const htmlElement = element as HTMLElement
