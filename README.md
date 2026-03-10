@@ -87,7 +87,7 @@ This repository is a fork of Animated Java with support for exporting projects t
 	- Use `rig.animate("<instance_id>", "<project_name>", "<animation_name>", <tick>, <interp_optional>)`.  
 	- `<animation_name>` must match an animation name from your Blockbench project.  
 	- `<tick>` is the animation time; increase it each game tick (`0, 1, 2, ...`) to play the animation over time.  
-	- `<interp_optional>` should always match the amount of ticks waiting between each frame.  
+	- `<interp_optional>` should always match the amount of ticks waiting between each frame. (set to 0 to disable interpolation)  
 	- Use `rig.animate.noreset(...)` when you want to keep the rig-entities selection active after animating.  
 	- Use `rig.animate(...)` when you want that selection reset automatically and restore your previous selection.
 5. Removing the rig.  
