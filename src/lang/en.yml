@@ -6,7 +6,7 @@ animated_java.format.blueprint.name: Blueprint
 animated_java.action.open_blueprint_settings.name: Blueprint Settings
 animated_java.action.open_documentation.name: Documentation
 animated_java.action.open_changelog.name: Changelog
-animated_java.action.check_for_updates.name: Check for Updates
+animated_java.action.check_for_updates.name: Check for Updates (AJ-DF)
 animated_java.action.open_about.name: About
 animated_java.action.open_display_entity_config.name: Display Entity Config
 animated_java.action.open_locator_config.name: Locator Config

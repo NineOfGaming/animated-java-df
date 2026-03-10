@@ -74,6 +74,8 @@ function showUpdateAvailableMessage(latestVersion: string, releaseUrl: string) {
 		{
 			title: translate('update_checker.dialog.title'),
 			message: translatedMessage.replace(/\r?\n/g, '<br>'),
+			cancel: 1,
+			cancelIndex: 1,
 			buttons: [
 				translate('update_checker.dialog.button.download'),
 				translate('update_checker.dialog.button.later'),
