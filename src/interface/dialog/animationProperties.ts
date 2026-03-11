@@ -1,5 +1,6 @@
 import AniamtionPropertiesSvelteComponent from '../../components/animationProperties.svelte'
 import { PACKAGE } from '../../constants'
+import { isReservedAnimationName, normalizeAnimationName } from '../../util/animationName'
 import { Valuable } from '../../util/stores'
 import { SvelteDialog } from '../../util/svelteDialog'
 import { translate } from '../../util/translation'
@@ -27,7 +28,25 @@ export function openAnimationPropertiesDialog(animation: _Animation) {
 		},
 		preventKeybinds: true,
 		onConfirm() {
-			animation.name = animationName.get()
+			const nextAnimationName = normalizeAnimationName(animationName.get())
+			if (!nextAnimationName) {
+				Blockbench.showQuickMessage(
+					translate('dialog.animation_properties.animation_name.error.empty')
+				)
+				return
+			}
+
+			if (isReservedAnimationName(nextAnimationName)) {
+				Blockbench.showQuickMessage(
+					translate(
+						'dialog.animation_properties.animation_name.error.reserved',
+						nextAnimationName
+					)
+				)
+				return
+			}
+
+			animation.name = nextAnimationName
 			animation.createUniqueName(Blockbench.Animation.all)
 			animation.loop = loopMode.get() as any
 			animation.loop_delay = loopDelay.get().toString()

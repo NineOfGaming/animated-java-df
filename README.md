@@ -38,7 +38,7 @@
 
 ---
 
-# Animated Java to DiamondFire
+# Animated Java DF
 
 ### About this fork (`animated-java-df`)
 
@@ -53,14 +53,14 @@ This repository is a fork of Animated Java with support for exporting projects t
 3. Select the downloaded file.
 4. Restart Blockbench.
 
-> [!NOTE]
-> Use Blockbench **4.12.6** (Animated Java is not compatible with 5.x): [Download 4.12.6](https://github.com/JannisX11/blockbench/releases/tag/v4.12.6).
+> [!IMPORTANT]
+> Use Blockbench **4.12.6** (Animated Java is not compatible with version **>= 5**): [Download 4.12.6](https://github.com/JannisX11/blockbench/releases/tag/v4.12.6).
 
 <br/>
 
 ## Export to DiamondFire
 
-1. Install [CodeClient](https://modrinth.com/mod/codeclient) (manually or via a launcher).
+1. Install [CodeClient](https://modrinth.com/mod/codeclient).
 2. Enable CodeClient API
     - Run `/ccconfig CodeClientAPI true`.  
       **or**
@@ -68,7 +68,7 @@ This repository is a fork of Animated Java with support for exporting projects t
 3. Restart Minecraft.
 4. In Blockbench, click `Animated Java > DiamondFire > Export`.
 
-> [!NOTE]
+> [!IMPORTANT]
 > You must be in dev mode on DiamondFire for export to work.
 
 <br/>
@@ -80,13 +80,12 @@ This repository is a fork of Animated Java with support for exporting projects t
 	- `Animated Java > DiamondFire > Base Templates > Get All Templates` sends the shared helpers (`rig.spawn`, `rig.animate`, etc.).
 2. Initialize each model once (for example in your setup/load code).  
 	- Use `rig.init.rig("<project_name>")` for one model, or `rig.init.rigs(<list>)` for multiple.
-3. Spawn a rig instance where you need it.  
+3. Spawn a rig instance.  
 	- Use `rig.spawn(<entities_return_var>, "<instance_id>", "<project_name>", <location>)`.  
 	- `<instance_id>` is the unique runtime instance key, while `<project_name>` is the exported model id from the previous steps.
 4. Animate the spawned instance.  
 	- Use `rig.animate("<instance_id>", "<project_name>", "<animation_name>", <tick>, <interp_optional>)`.  
-	- `<animation_name>` must match an animation name from your Blockbench project.  
-	- `<tick>` is the animation time; increase it each game tick (`0, 1, 2, ...`) to play the animation over time.  
+	- `<tick>` is the current frame.  
 	- `<interp_optional>` should always match the amount of ticks waiting between each frame. (set to 0 to disable interpolation)  
 	- Use `rig.animate.noreset(...)` when you want to keep the rig-entities selection active after animating.  
 	- Use `rig.animate(...)` when you want that selection reset automatically and restore your previous selection.
@@ -105,7 +104,7 @@ This fork is based on [Millo5/animated-java-df](https://github.com/Millo5/animat
 
 <br/>
 
-## Other
+## 
 
 For questions or discussion: join the [Discord server](https://discord.gg/vpWfwa28Sm).
 

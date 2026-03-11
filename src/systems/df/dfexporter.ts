@@ -49,10 +49,32 @@ const DF_HYPERCUBE_TYPE_BY_NODE_TYPE: Record<SupportedDFNodeType, string> = {
 	block_display: 'block',
 }
 
+const DF_ANIMATION_NAME_PREFIX = 'animation.model.'
+
 function ensureNamespacedId(id: string): string {
 	const trimmed = id.trim()
 	if (!trimmed) return 'minecraft:stone'
 	return trimmed.includes(':') ? trimmed : `minecraft:${trimmed}`
+}
+
+function toDFAnimationName(animationName: string): string {
+	const trimmed = animationName.trim()
+	const withoutPrefix = trimmed.startsWith(DF_ANIMATION_NAME_PREFIX)
+		? trimmed.slice(DF_ANIMATION_NAME_PREFIX.length)
+		: trimmed
+
+	return withoutPrefix || trimmed || 'animation'
+}
+
+function makeUniqueName(baseName: string, usedNames: Set<string>): string {
+	let uniqueName = baseName
+	let suffix = 2
+	while (usedNames.has(uniqueName)) {
+		uniqueName = `${baseName}_${suffix}`
+		suffix++
+	}
+	usedNames.add(uniqueName)
+	return uniqueName
 }
 
 function blockMaterialToItemId(blockMaterial: string): string {
@@ -411,10 +433,13 @@ export async function exportJSONDF(options: {
 		nodes,
 	}
 
-	const animationData: any = {}
+	const animationData: RawAnimationData = {}
+	const usedAnimationNames = new Set<string>()
 
 	for (const animation of animations) {
-		animationData[animation.name] = {
+		const animationName = makeUniqueName(toDFAnimationName(animation.name), usedAnimationNames)
+
+		animationData[animationName] = {
 			length: animation.duration,
 			nodes: {},
 		}
@@ -444,7 +469,7 @@ export async function exportJSONDF(options: {
 
 			compressedAnimationData[nodes[nodeUuid].name] = gzipped
 		}
-		animationData[animation.name].nodes = compressedAnimationData
+		animationData[animationName].nodes = compressedAnimationData
 	}
 
 	const codeTemplate = buildCodeTemplate(dataForTemplate, animationData)

@@ -4,6 +4,7 @@
 
 	import { Valuable } from '../util/stores'
 	import { translate } from '../util/translation'
+	import { isReservedAnimationName } from '../util/animationName'
 </script>
 
 <script lang="ts">
@@ -29,6 +30,14 @@
 				type: 'error',
 				message: translate(
 					'dialog.animation_properties.animation_name.error.invalid_characters'
+				),
+			}
+		} else if (isReservedAnimationName(value)) {
+			return {
+				type: 'error',
+				message: translate(
+					'dialog.animation_properties.animation_name.error.reserved',
+					value.trim()
 				),
 			}
 		}
