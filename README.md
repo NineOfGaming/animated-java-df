@@ -54,7 +54,7 @@ This repository is a fork of Animated Java with support for exporting projects t
 4. Restart Blockbench.
 
 > [!IMPORTANT]
-> Use Blockbench **4.12.6** (Animated Java is not compatible with version **>= 5**): [Download 4.12.6](https://github.com/JannisX11/blockbench/releases/tag/v4.12.6).
+> Use Blockbench **4.12.6** (Animated Java is not compatible with version **>=5**): [Download 4.12.6](https://github.com/JannisX11/blockbench/releases/tag/v4.12.6).
 
 <br/>
 
@@ -87,7 +87,7 @@ This repository is a fork of Animated Java with support for exporting projects t
 	- Use `rig.animate("<instance_id>", "<project_name>", "<animation_name>", <tick>, <interp_optional>)`.  
 	- `<tick>` is the current frame.  
 	- `<interp_optional>` should always match the amount of ticks waiting between each frame. (set to 0 to disable interpolation)  
-	- Use `rig.animate.noreset(...)` when you want to keep the rig-entities selection active after animating.  
+	- Use `rig.animate.noReset(...)` when you want to keep the rig-entities selection active after animating.  
 	- Use `rig.animate(...)` when you want that selection reset automatically and restore your previous selection.
 5. Removing the rig.  
 	- Use `rig.remove("<instance_id>")`.
