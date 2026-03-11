@@ -1,5 +1,6 @@
 import { openAnimationPropertiesDialog } from 'src/interface/dialog/animationProperties'
 import { registerConditionalPropertyOverrideMod, registerMod } from 'src/util/moddingTools'
+import { isReservedAnimationName, normalizeAnimationName } from 'src/util/animationName'
 import { activeProjectIsBlueprintFormat } from '../formats/blueprint'
 import { roundToNth } from '../util/misc'
 import { translate } from '../util/translation'
@@ -63,6 +64,45 @@ registerConditionalPropertyOverrideMod({
 		return function (this: _Animation, length?: number) {
 			length = Math.max(length ?? this.length, MINIMUM_ANIMATION_LENGTH)
 			return original.call(this, length)
+		}
+	},
+})
+
+//region Reserved Names
+registerConditionalPropertyOverrideMod({
+	id: `animated-java:function-override/animation/create-unique-name`,
+	object: Blockbench.Animation.prototype,
+	key: 'createUniqueName',
+
+	condition: () => activeProjectIsBlueprintFormat(),
+
+	get: original => {
+		return function (this: _Animation, references: _Animation[]) {
+			const normalizedReferences = references ?? []
+			const normalizedName = normalizeAnimationName(this.name)
+			if (normalizedName) {
+				this.name = normalizedName
+			}
+
+			if (isReservedAnimationName(this.name)) {
+				this.name = `${this.name}_2`
+			}
+
+			const result = original.call(this, normalizedReferences)
+
+			// Defensive fallback if Blockbench's internals rewrite the name.
+			const normalizedResultName = normalizeAnimationName(this.name)
+			if (normalizedResultName && normalizedResultName !== this.name) {
+				this.name = normalizedResultName
+				original.call(this, normalizedReferences)
+			}
+
+			if (isReservedAnimationName(this.name)) {
+				this.name = `${this.name}_2`
+				original.call(this, normalizedReferences)
+			}
+
+			return result
 		}
 	},
 })
