@@ -1,6 +1,6 @@
-import { IRenderedAnimation } from '../animationRenderer'
 import type { IBlueprintDisplayEntityConfigJSON } from '../../formats/blueprint'
 import { DisplayEntityConfig } from '../../nodeConfigs'
+import { IRenderedAnimation } from '../animationRenderer'
 import type { AnyRenderedNode, IRenderedRig, IRenderedVariantModel } from '../rigRenderer'
 import { CodeClientError, sendTemplatesToCodeClient } from './codeclient'
 import { textToGZip } from './compression'
@@ -34,9 +34,12 @@ type RawAnimationData = Record<
 	}
 >
 
+type RawVariantData = Record<string, string[]>
+
 type SupportedDFNodeType = 'bone' | 'text_display' | 'item_display' | 'block_display'
 
 const DF_EXPORTED_NODE_TYPES: ReadonlySet<AnyRenderedNode['type']> = new Set([
+	'bone',
 	'text_display',
 	'item_display',
 	'block_display',
@@ -253,7 +256,10 @@ function resolveVariantDisplayConfigWithDefaults(
 }
 
 function serializeDisplayNodeCommon(
-	node: Extract<AnyRenderedNode, { type: 'bone' | 'text_display' | 'item_display' | 'block_display' }>
+	node: Extract<
+		AnyRenderedNode,
+		{ type: 'bone' | 'text_display' | 'item_display' | 'block_display' }
+	>
 ): Record<string, unknown> {
 	const defaultConfig = resolveDisplayConfigWithDefaults(node.configs?.default)
 	const variantConfigs = Object.fromEntries(
@@ -274,7 +280,10 @@ function serializeDisplayNodeCommon(
 	}
 }
 
-function serializeNodeForDF(node: AnyRenderedNode, defaultVariantModel?: IRenderedVariantModel): Node | undefined {
+function serializeNodeForDF(
+	node: AnyRenderedNode,
+	defaultVariantModel?: IRenderedVariantModel
+): Node | undefined {
 	if (!DF_EXPORTED_NODE_TYPES.has(node.type)) {
 		return
 	}
@@ -329,7 +338,9 @@ function serializeNodeForDF(node: AnyRenderedNode, defaultVariantModel?: IRender
 				data: {
 					...serializeDisplayNodeCommon(node),
 					material: blockMaterial,
-					...(parsedBlockMaterial.states ? { block_states: parsedBlockMaterial.states } : {}),
+					...(parsedBlockMaterial.states
+						? { block_states: parsedBlockMaterial.states }
+						: {}),
 				},
 			}
 		}
@@ -357,10 +368,14 @@ function buildNodeItemSNBT(nodeData: Node, fallbackItemMaterial: string): string
 	}
 
 	const bukkitValues: string[] = Object.entries(customDataTags).map(([key, value]) => {
-		return `"hypercube:${escapeSnbtString(key)}":"${escapeSnbtString(primitiveToString(value))}"`
+		return `"hypercube:${escapeSnbtString(key)}":"${escapeSnbtString(
+			primitiveToString(value)
+		)}"`
 	})
 
-	const components: string[] = [`"minecraft:custom_data":{PublicBukkitValues:{${bukkitValues.join(',')}}}`]
+	const components: string[] = [
+		`"minecraft:custom_data":{PublicBukkitValues:{${bukkitValues.join(',')}}}`,
+	]
 
 	let itemId = ensureNamespacedId(fallbackItemMaterial)
 
@@ -418,7 +433,7 @@ export async function exportJSONDF(options: {
 	const { rig, animations, displayItemPath } = options
 
 	const nodes: Record<string, Node> = {}
-	const defaultVariant = rig.variants[Object.keys(rig.variants)[0]]
+	const defaultVariant = Object.values(rig.variants).find(variant => variant.is_default)
 	for (const [uuid, node] of Object.entries(rig.nodes)) {
 		const renderedNode = serializeNodeForDF(node, defaultVariant?.models[uuid])
 		if (!renderedNode) continue
@@ -435,6 +450,17 @@ export async function exportJSONDF(options: {
 
 	const animationData: RawAnimationData = {}
 	const usedAnimationNames = new Set<string>()
+
+	const variantData: RawVariantData = {}
+	for (const variant of Object.values(rig.variants)) {
+		if (variant.is_default) continue
+
+		const variantNodes = Object.keys(variant.models)
+			.map(nodeUuid => nodes[nodeUuid]?.name)
+			.filter((nodeName): nodeName is string => Boolean(nodeName))
+
+		variantData[variant.name] = variantNodes
+	}
 
 	for (const animation of animations) {
 		const animationName = makeUniqueName(toDFAnimationName(animation.name), usedAnimationNames)
@@ -472,7 +498,7 @@ export async function exportJSONDF(options: {
 		animationData[animationName].nodes = compressedAnimationData
 	}
 
-	const codeTemplate = buildCodeTemplate(dataForTemplate, animationData)
+	const codeTemplate = buildCodeTemplate(dataForTemplate, animationData, variantData)
 	try {
 		await sendTemplatesToCodeClient(
 			[
@@ -494,7 +520,8 @@ export async function exportJSONDF(options: {
 
 function buildCodeTemplate(
 	templateData: DFTemplateData,
-	rawAnimationData: RawAnimationData
+	rawAnimationData: RawAnimationData,
+	rawVariantData: RawVariantData
 ): CodeTemplate {
 	// {"blocks":[
 	// {"id":"block","block":"func","args":{"items":[{"item":{"id":"pn_el","data":{"name":"nodes","type":"var","plural":false,"optional":false}},"slot":0},{"item":{"id":"pn_el","data":{"name":"animations","type":"var","plural":false,"optional":false}},"slot":1},{"item":{"id":"hint","data":{"id":"function"}},"slot":25},{"item":{"id":"bl_tag","data":{"option":"False","tag":"Is Hidden","action":"dynamic","block":"func"}},"slot":26}]},"data":"consts.rig.NAME"},{"id":"block","block":"set_var","args":{"items":[{"item":{"id":"var","data":{"name":"nodes","scope":"line"}},"slot":0},{"item":{"id":"item","data":{"item":"{DF_NBT:3955,components:{\"minecraft:custom_data\":{PublicBukkitValues:{\"hypercube:id\":\"leg_right\",\"hypercube:type\":\"model\"}},\"minecraft:custom_model_data\":2},count:1,id:\"minecraft:lime_candle\"}"}},"slot":1},{"item":{"id":"item","data":{"item":"{DF_NBT:3955,components:{\"minecraft:custom_data\":{PublicBukkitValues:{\"hypercube:id\":\"backpack\",\"hypercube:type\":\"text\"}},\"minecraft:custom_name\":'{\"color\":\"red\",\"italic\":false,\"text\":\"asdf\"}'},count:1,id:\"minecraft:name_tag\"}"}},"slot":2},{"item":{"id":"item","data":{"item":"{DF_NBT:3955,components:{\"minecraft:custom_data\":{PublicBukkitValues:{\"hypercube:id\":\"held\",\"hypercube:type\":\"item\"}}},count:1,id:\"minecraft:diamond_sword\"}"}},"slot":3}]},"action":"CreateList"},{"id":"block","block":"set_var","args":{"items":[{"item":{"id":"var","data":{"name":"animations","scope":"line"}},"slot":0},{"item":{"id":"txt","data":{"name":"default"}},"slot":1},{"item":{"id":"txt","data":{"name":"soem really long compressed gzip"}},"slot":2}]},"action":"SetDictValue"},{"id":"block","block":"set_var","args":{"items":[{"item":{"id":"var","data":{"name":"animations","scope":"line"}},"slot":0},{"item":{"id":"txt","data":{"name":"wave"}},"slot":1},{"item":{"id":"txt","data":{"name":"soem really long compressed gzip"}},"slot":2}]},"action":"SetDictValue"}
@@ -533,6 +560,13 @@ function buildCodeTemplate(
 						data: { name: 'animations', type: 'var', plural: false, optional: false },
 					},
 					slot: 2,
+				},
+				{
+					item: {
+						id: 'pn_el',
+						data: { name: 'variants', type: 'var', plural: false, optional: false },
+					},
+					slot: 3,
 				},
 				{
 					item: {
@@ -602,6 +636,7 @@ function buildCodeTemplate(
 		template.blocks.push(nodesVarBlock)
 	}
 
+	// Set Animations Variable Blocks
 	for (const [animationName, animation] of Object.entries(rawAnimationData)) {
 		let animationBlock: CodeBlock = {
 			id: 'block',
@@ -668,6 +703,72 @@ function buildCodeTemplate(
 					},
 					{
 						item: { id: 'var', data: { name: animationName, scope: 'line' } },
+						slot: 2,
+					},
+				],
+			},
+		}
+		template.blocks.push(setDictValueBlock)
+	}
+
+	// Set Variant Variable Blocks
+	for (const [variantName, variant] of Object.entries(rawVariantData)) {
+		let variantBlock: CodeBlock = {
+			id: 'block',
+			block: 'set_var',
+			action: 'CreateList',
+			args: {
+				items: [
+					{
+						item: { id: 'var', data: { name: variantName, scope: 'line' } },
+						slot: 0,
+					},
+				],
+			},
+		}
+
+		// add node data
+		for (const nodeName of variant) {
+			if (variantBlock.args!.items!.length + 2 > slotLimit) {
+				// push current block and start a new one
+				template.blocks.push(variantBlock)
+				variantBlock = {
+					id: 'block',
+					block: 'set_var',
+					action: 'AppendValue',
+					args: {
+						items: [
+							{
+								item: { id: 'var', data: { name: variantName, scope: 'line' } },
+								slot: 0,
+							},
+						],
+					},
+				}
+			}
+			variantBlock.args!.items!.push({
+				item: { id: 'txt', data: { name: nodeName } },
+				slot: variantBlock.args!.items!.length,
+			})
+		}
+		if (variantBlock.args!.items!.length > 1) template.blocks.push(variantBlock)
+
+		const setDictValueBlock: CodeBlock = {
+			id: 'block',
+			block: 'set_var',
+			action: 'SetDictValue',
+			args: {
+				items: [
+					{
+						item: { id: 'var', data: { name: 'variants', scope: 'line' } },
+						slot: 0,
+					},
+					{
+						item: { id: 'txt', data: { name: variantName } },
+						slot: 1,
+					},
+					{
+						item: { id: 'var', data: { name: variantName, scope: 'line' } },
 						slot: 2,
 					},
 				],
