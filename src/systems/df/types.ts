@@ -1,6 +1,6 @@
 export interface CodeBlock {
 	id: string
-	block: string
+	block?: string
 	args?: {
 		items?: Array<{
 			item: {
@@ -12,6 +12,7 @@ export interface CodeBlock {
 	}
 	data?: string
 	action?: string
+	[key: string]: unknown
 }
 
 export interface CodeTemplate {
