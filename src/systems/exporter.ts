@@ -9,7 +9,7 @@ import { isResourcePackPath } from '../util/minecraftUtil'
 import { translate } from '../util/translation'
 import { Variant } from '../variants'
 import { hashAnimations, renderProjectAnimations } from './animationRenderer'
-import { exportJSON } from './jsonCompiler'
+import { exportPluginBlueprint } from './pluginCompiler'
 import compileDataPack from './datapackCompiler'
 import { IntentionalExportError } from './errors'
 import resourcepackCompiler from './resourcepackCompiler'
@@ -142,13 +142,7 @@ async function actuallyExportProject({
 
 		if (aj.enable_plugin_mode) {
 			PROGRESS_DESCRIPTION.set('Exporting Plugin JSON...')
-			exportJSON({
-				rig,
-				animations,
-				displayItemPath,
-				textureExportFolder,
-				modelExportFolder,
-			})
+			exportPluginBlueprint({ rig, animations })
 		}
 
 		Project!.last_used_export_namespace = aj.export_namespace
