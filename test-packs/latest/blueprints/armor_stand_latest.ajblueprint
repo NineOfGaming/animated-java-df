@@ -3,7 +3,7 @@
 		"format": "animated-java:format/blueprint",
 		"format_version": "1.8.1",
 		"uuid": "167b27cd-b559-3f13-a97c-0841fe21f1d1",
-		"save_location": "D:\\github-repos\\animated-java\\old-animated-java\\test-packs\\latest\\blueprints\\armor_stand_latest.ajblueprint",
+		"save_location": "/var/mnt/ssd2/repos/animated-java/animated-java/test-packs/latest/blueprints/armor_stand_latest.ajblueprint",
 		"last_used_export_namespace": "armor_stand"
 	},
 	"resolution": {
@@ -906,14 +906,44 @@
 		},
 		{
 			"name": "camera",
-			"position": [0, 27, 0],
-			"rotation": [0, 0, 0],
-			"fov": 70,
-			"aspect_ratio": [16, 9],
-			"linked_preview": "",
-			"camera_linked": false,
-			"visibility": true,
-			"type": "camera",
+			"box_uv": false,
+			"rescale": false,
+			"locked": false,
+			"light_emission": 0,
+			"render_order": "default",
+			"allow_mirror_modeling": true,
+			"from": [0, 0, 0],
+			"to": [1, 1, 1],
+			"autouv": 0,
+			"color": 3,
+			"origin": [0, 0, 0],
+			"faces": {
+				"north": {
+					"uv": [0, 0, 1, 1],
+					"texture": 0
+				},
+				"east": {
+					"uv": [0, 0, 1, 1],
+					"texture": 0
+				},
+				"south": {
+					"uv": [0, 0, 1, 1],
+					"texture": 0
+				},
+				"west": {
+					"uv": [0, 0, 1, 1],
+					"texture": 0
+				},
+				"up": {
+					"uv": [0, 0, 1, 1],
+					"texture": 0
+				},
+				"down": {
+					"uv": [0, 0, 1, 1],
+					"texture": 0
+				}
+			},
+			"type": "cube",
 			"uuid": "3ffeee76-901e-f8a2-c29a-82f90e16fd1e"
 		},
 		{
@@ -2314,46 +2344,7 @@
 			"start_delay": "",
 			"loop_delay": "0",
 			"excluded_nodes": [],
-			"animators": {
-				"3ffeee76-901e-f8a2-c29a-82f90e16fd1e": {
-					"name": "camera",
-					"type": "camera",
-					"keyframes": [
-						{
-							"channel": "position",
-							"data_points": [
-								{
-									"x": "math.sin(q.life_time * 4) * 100",
-									"y": "0",
-									"z": "math.cos(q.life_time * 4) * 100"
-								}
-							],
-							"uuid": "7ea87827-b1e4-6f50-5a62-b4a2b3e25b54",
-							"time": 0,
-							"color": -1,
-							"interpolation": "linear",
-							"easing": "linear",
-							"easingArgs": []
-						},
-						{
-							"channel": "rotation",
-							"data_points": [
-								{
-									"x": "0",
-									"y": "q.life_time * 4",
-									"z": "0"
-								}
-							],
-							"uuid": "3e52691f-2314-0f11-1f4f-d6ce872df516",
-							"time": 0,
-							"color": -1,
-							"interpolation": "linear",
-							"easing": "linear",
-							"easingArgs": []
-						}
-					]
-				}
-			}
+			"animators": {}
 		}
 	],
 	"animation_variable_placeholders": "v.walk_speed = 360 * 1;\nv.run_speed = 360 * 1.5;\nv.stickbug_speed = 360 * 1.25;\n"

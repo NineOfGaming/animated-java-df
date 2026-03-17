@@ -847,8 +847,22 @@ IF (has_entity_locators) {
 		execute on passengers if entity @s[tag=<%TAGS.GLOBAL_DATA()%>] run block zzz/as_all_locators/as_data {
 			REPEAT (Object.values(rig.nodes).filter(node => node.type === 'locator' && node.config?.use_entity)) as locator {
 				data modify storage <%temp_storage%> args.uuid set from entity @s data.locators.<%locator.storage_name%>.uuid
+
+				IF (debug_mode) {
+					scoreboard players set #aj.check <%OBJECTIVES.I()%> 0
+				}
+
 				block execute_as_uuid { with storage <%temp_storage%> args
-					$execute as $(uuid) run $(command)
+					IF (debug_mode) {
+						# If the function successfully instantiated, the provided command is valid.
+						scoreboard players set #aj.check <%OBJECTIVES.I()%> 1
+					}
+
+					$execute as $(uuid) run return run $(command)
+				}
+
+				IF (debug_mode) {
+					execute if score #aj.check <%OBJECTIVES.I()%> matches 0 run tellraw @a <%TELLRAW.LOCATOR_COMMAND_FAILED_TO_EXECUTE({text: locator.storage_name, color: 'aqua'})%>
 				}
 			}
 		}
@@ -868,8 +882,22 @@ IF (has_entity_locators) {
 		execute on passengers if entity @s[tag=<%TAGS.GLOBAL_DATA()%>] run block zzz/as_all_locators/as_data {
 			REPEAT (Object.values(rig.nodes).filter(node => node.type === 'locator' && node.config?.use_entity)) as locator {
 				data modify storage <%temp_storage%> args.uuid set from entity @s data.locators.<%locator.storage_name%>.uuid
+
+				IF (debug_mode) {
+					scoreboard players set #aj.check <%OBJECTIVES.I()%> 0
+				}
+
 				block execute_as_uuid { with storage <%temp_storage%> args
-					$execute as $(uuid) at @s run $(command)
+					IF (debug_mode) {
+						# If the function successfully instantiated, the provided command is valid.
+						scoreboard players set #aj.check <%OBJECTIVES.I()%> 1
+					}
+
+					$execute as $(uuid) at @s run return run $(command)
+				}
+
+				IF (debug_mode) {
+					execute if score #aj.check <%OBJECTIVES.I()%> matches 0 run tellraw @a <%TELLRAW.LOCATOR_COMMAND_FAILED_TO_EXECUTE({text: locator.storage_name, color: 'aqua'})%>
 				}
 			}
 		}
@@ -933,11 +961,25 @@ IF (has_locators) {
 		execute at @s on passengers if entity @s[tag=<%TAGS.GLOBAL_DATA()%>] run block zzz/at_all_locators/as_data {
 			REPEAT (Object.values(rig.nodes).filter(node => node.type === 'locator')) as locator {
 				data modify storage <%temp_storage%> args merge from entity @s data.locators.<%locator.storage_name%>
+
+				IF (debug_mode) {
+					scoreboard players set #aj.check <%OBJECTIVES.I()%> 0
+				}
+
 				block execute_at_transform { with storage <%temp_storage%> args
+					IF (debug_mode) {
+						# If the function successfully instantiated, the provided command is valid.
+						scoreboard players set #aj.check <%OBJECTIVES.I()%> 1
+					}
+
 					$execute \
 						positioned ^$(px) ^$(py) ^$(pz) \
 						rotated ~$(ry) ~$(rx) \
 					run $(command)
+				}
+
+				IF (debug_mode) {
+					execute if score #aj.check <%OBJECTIVES.I()%> matches 0 run tellraw @a <%TELLRAW.LOCATOR_COMMAND_FAILED_TO_EXECUTE({text: locator.storage_name, color: 'aqua'})%>
 				}
 			}
 		}
