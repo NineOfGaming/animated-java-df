@@ -66,7 +66,7 @@ dir root {
 			}
 			execute on passengers run { with entity @s data.uuids_by_name
 				REPEAT (Object.values(rig.nodes).filter(node => BONE_TYPES.includes(node.type))) as node {
-					$rotate $(<%node.storage_name%>) ~ ~
+					$tp $(<%node.storage_name%>) ~ ~ ~ ~ ~
 					# Precise Rotation Workaround. Fixes MC-272913.
 					# Thanks @Triton365! (https://discord.com/channels/154777837382008833/157097006500806656/1402253905408163842)
 					$execute \
@@ -170,7 +170,7 @@ IF (!auto_update_rig_orientation) {
 				function ./root/on_tick/transform_floating_entities
 			}
 			REPEAT (Object.values(rig.nodes).filter(node => BONE_TYPES.includes(node.type))) as node {
-				$rotate $(<%node.storage_name%>) ~ ~
+				$tp $(<%node.storage_name%>) ~ ~ ~ ~ ~
 				# Precise Rotation Workaround. Fixes MC-272913.
 				# Thanks @Triton365! (https://discord.com/channels/154777837382008833/157097006500806656/1402253905408163842)
 				$execute \
@@ -505,7 +505,7 @@ dir animations {
 								if (Object.keys(to_merge.locators).length > 0 || Object.keys(to_merge.cameras).length > 0) {
 									frameFunc += `\ndata modify entity @s data merge value ${JSON.stringify(to_merge)}`
 									if (!auto_update_rig_orientation) {
-										frameFunc += `\nfunction ./on_tick/transform_floating_entities`
+										frameFunc += `\nfunction animated_java:${export_namespace}/root/on_tick/transform_floating_entities`
 									}
 									hasFunction = true
 								}
