@@ -4,7 +4,12 @@ import type { ResourceLocation } from 'src/util/resourceLocation'
 import AnimatedJavaIcon from '../assets/animated_java_icon.svg'
 import { activeProjectIsBlueprintFormat, BLUEPRINT_FORMAT_ID } from '../formats/blueprint'
 import { cleanupExportedFiles } from '../systems/cleaner'
-import { DF_BASE_HELPER_DEFINITIONS, getDFBaseTemplateCount } from '../systems/df/baseTemplates'
+import {
+	type DFBaseTemplateCategory,
+	DF_BASE_HELPER_DEFINITIONS,
+	getDFBaseTemplateCount,
+	getDFBaseTemplateDefinitions,
+} from '../systems/df/baseTemplates'
 import {
 	exportDFBaseTemplate,
 	exportDFBaseTemplates,
@@ -201,6 +206,11 @@ const EXPORT_DF = registerAction(
 )
 
 const DF_BASE_TEMPLATES_ALL_ACTION_ID = 'animated-java:action/df-base-templates-all'
+const DF_BASE_TEMPLATES_REQUIRED_ACTION_ID = 'animated-java:action/df-base-templates-required'
+const DF_BASE_TEMPLATES_OPTIONAL_ACTION_ID = 'animated-java:action/df-base-templates-optional'
+
+const REQUIRED_DF_BASE_TEMPLATES = getDFBaseTemplateDefinitions('required')
+const OPTIONAL_DF_BASE_TEMPLATES = getDFBaseTemplateDefinitions('optional')
 
 const DF_BASE_TEMPLATES_ALL = registerAction(
 	{ id: DF_BASE_TEMPLATES_ALL_ACTION_ID },
@@ -210,6 +220,34 @@ const DF_BASE_TEMPLATES_ALL = registerAction(
 		name: `${translate('action.df_base_templates_all.name')} (${getDFBaseTemplateCount()})`,
 		click() {
 			void exportDFBaseTemplates()
+		},
+	}
+)
+
+const DF_BASE_TEMPLATES_REQUIRED = registerAction(
+	{ id: DF_BASE_TEMPLATES_REQUIRED_ACTION_ID },
+	{
+		icon: 'check_circle',
+		category: 'animated_java',
+		name: `${translate('action.df_base_templates_required.name')} (${getDFBaseTemplateCount(
+			'required'
+		)})`,
+		click() {
+			void exportDFBaseTemplates('required')
+		},
+	}
+)
+
+const DF_BASE_TEMPLATES_OPTIONAL = registerAction(
+	{ id: DF_BASE_TEMPLATES_OPTIONAL_ACTION_ID },
+	{
+		icon: 'extension',
+		category: 'animated_java',
+		name: `${translate('action.df_base_templates_optional.name')} (${getDFBaseTemplateCount(
+			'optional'
+		)})`,
+		click() {
+			void exportDFBaseTemplates('optional')
 		},
 	}
 )
@@ -229,16 +267,57 @@ function formatDFTemplateTooltip(description: string): string {
 		.trim()
 }
 
+function buildDFTemplateSetTooltip(
+	definitions: ReadonlyArray<(typeof DF_BASE_HELPER_DEFINITIONS)[number]>,
+	headingKey: string
+) {
+	return [
+		translate(headingKey),
+		...definitions.map(definition => `- ${definition.displayName ?? definition.templateName}`),
+	]
+		.join('\n')
+		.trim()
+}
+
 const DF_TEMPLATE_ACTION_TOOLTIPS = new Map<string, string>()
 
 DF_TEMPLATE_ACTION_TOOLTIPS.set(
 	DF_BASE_TEMPLATES_ALL_ACTION_ID,
 	[
-		'Includes these templates:',
-		...DF_BASE_HELPER_DEFINITIONS.map(
+		translate('action.df_base_templates.tooltip.includes'),
+		'',
+		translate(
+			'action.df_base_templates.tooltip.required_section',
+			String(REQUIRED_DF_BASE_TEMPLATES.length)
+		),
+		...REQUIRED_DF_BASE_TEMPLATES.map(
+			definition => `- ${definition.displayName ?? definition.templateName}`
+		),
+		'',
+		translate(
+			'action.df_base_templates.tooltip.optional_section',
+			String(OPTIONAL_DF_BASE_TEMPLATES.length)
+		),
+		...OPTIONAL_DF_BASE_TEMPLATES.map(
 			definition => `- ${definition.displayName ?? definition.templateName}`
 		),
 	].join('\n')
+)
+
+DF_TEMPLATE_ACTION_TOOLTIPS.set(
+	DF_BASE_TEMPLATES_REQUIRED_ACTION_ID,
+	buildDFTemplateSetTooltip(
+		REQUIRED_DF_BASE_TEMPLATES,
+		'action.df_base_templates_required.tooltip'
+	)
+)
+
+DF_TEMPLATE_ACTION_TOOLTIPS.set(
+	DF_BASE_TEMPLATES_OPTIONAL_ACTION_ID,
+	buildDFTemplateSetTooltip(
+		OPTIONAL_DF_BASE_TEMPLATES,
+		'action.df_base_templates_optional.tooltip'
+	)
 )
 
 for (const definition of DF_BASE_HELPER_DEFINITIONS) {
@@ -288,21 +367,49 @@ const DF_BASE_TEMPLATE_SPECIFIC_ACTIONS = DF_BASE_HELPER_DEFINITIONS.map(definit
 	)
 )
 
+function createDFBaseTemplatesSpecificCategorySubMenu(category: DFBaseTemplateCategory) {
+	const categoryActions = DF_BASE_HELPER_DEFINITIONS.filter(
+		definition => definition.category === category
+	).map(definition =>
+		DF_BASE_TEMPLATE_SPECIFIC_ACTIONS[DF_BASE_HELPER_DEFINITIONS.indexOf(definition)].get()
+	)
+
+	if (categoryActions.some(action => action == undefined)) return
+
+	return {
+		id: `animated_java:submenu/df/base_templates_specific/${category}`,
+		name: translate(
+			category === 'required'
+				? 'action.df_base_templates_required_group.name'
+				: 'action.df_base_templates_optional_group.name'
+		),
+		icon: category === 'required' ? 'check_circle' : 'extension',
+		searchable: false,
+		children: categoryActions,
+	}
+}
+
 function createDFBaseTemplatesSpecificSubMenu() {
-	const specificTemplateItems = DF_BASE_TEMPLATE_SPECIFIC_ACTIONS.map(action => action.get())
-	if (specificTemplateItems.some(item => item == undefined)) return
+	const requiredSubMenu = createDFBaseTemplatesSpecificCategorySubMenu('required')
+	const optionalSubMenu = createDFBaseTemplatesSpecificCategorySubMenu('optional')
+	if (requiredSubMenu == undefined || optionalSubMenu == undefined) return
 
 	return {
 		id: 'animated_java:submenu/df/base_templates_specific',
 		name: translate('action.df_base_templates_specific.name'),
 		icon: 'description',
 		searchable: false,
-		children: specificTemplateItems,
+		children: [requiredSubMenu, optionalSubMenu],
 	}
 }
 
 function createDFBaseTemplatesSubMenu() {
-	if (DF_BASE_TEMPLATES_ALL.get() == undefined) return
+	if (
+		DF_BASE_TEMPLATES_ALL.get() == undefined ||
+		DF_BASE_TEMPLATES_REQUIRED.get() == undefined ||
+		DF_BASE_TEMPLATES_OPTIONAL.get() == undefined
+	)
+		return
 
 	const specificSubMenu = createDFBaseTemplatesSpecificSubMenu()
 	if (specificSubMenu == undefined) return
@@ -312,7 +419,12 @@ function createDFBaseTemplatesSubMenu() {
 		name: translate('action.df_base_templates.name'),
 		icon: 'construction',
 		searchable: false,
-		children: [DF_BASE_TEMPLATES_ALL.get(), specificSubMenu],
+		children: [
+			DF_BASE_TEMPLATES_ALL.get(),
+			DF_BASE_TEMPLATES_REQUIRED.get(),
+			DF_BASE_TEMPLATES_OPTIONAL.get(),
+			specificSubMenu,
+		],
 	}
 }
 
