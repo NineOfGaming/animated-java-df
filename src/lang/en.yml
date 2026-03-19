@@ -15,7 +15,16 @@ animated_java.action.export_df.name: Export
 animated_java.action.df.name: DiamondFire
 animated_java.action.df_base_templates.name: Base Templates
 animated_java.action.df_base_templates_all.name: Get All Templates
+animated_java.action.df_base_templates_required.name: Get Required Templates
+animated_java.action.df_base_templates_optional.name: Get Optional Templates
 animated_java.action.df_base_templates_specific.name: Get Specific Template
+animated_java.action.df_base_templates_required_group.name: Required Templates
+animated_java.action.df_base_templates_optional_group.name: Optional Templates
+animated_java.action.df_base_templates.tooltip.includes: 'Includes these templates:'
+animated_java.action.df_base_templates.tooltip.required_section: 'Required ({0}):'
+animated_java.action.df_base_templates.tooltip.optional_section: 'Optional ({0}):'
+animated_java.action.df_base_templates_required.tooltip: 'Includes these required templates:'
+animated_java.action.df_base_templates_optional.tooltip: 'Includes these optional templates:'
 animated_java.action.export_debug.name: Export (Debug)
 animated_java.action.export_all.name: Export All
 animated_java.action.export_all.description: |-
@@ -720,6 +729,17 @@ animated_java.vanilla_item_display.title: Item Display
 ## Block Display
 
 ### Misc
+
+animated_java.misc.export.df_base_templates.set_name.all: DF base templates
+animated_java.misc.export.df_base_templates.set_name.required.lowercase: required DF base templates
+animated_java.misc.export.df_base_templates.set_name.required.titlecase: Required DF base templates
+animated_java.misc.export.df_base_templates.set_name.optional.lowercase: optional DF base templates
+animated_java.misc.export.df_base_templates.set_name.optional.titlecase: Optional DF base templates
+animated_java.misc.export.df_base_templates.template_singular: template
+animated_java.misc.export.df_base_templates.template_plural: templates
+animated_java.misc.export.df_base_templates.sending: Sending {0} {1} to CodeClient...
+animated_java.misc.export.df_base_templates.success: '{0} delivered successfully! Sent {1} {2}.'
+animated_java.misc.export.df_base_template.success: 'DF base template "{0}" delivered successfully!'
 
 # Blueprint Setting Errors - Failed to Export Message Box
 animated_java.misc.failed_to_export.title: Failed to Export

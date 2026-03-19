@@ -77,21 +77,21 @@ This repository is a fork of Animated Java with support for exporting projects t
 
 1. Send both template sets from Blockbench.  
 	- `Animated Java > DiamondFire > Export` sends your project-specific init function as `rig.init.<project_name>`.  
-	- `Animated Java > DiamondFire > Base Templates > Get All Templates` sends the shared helpers (`rig.spawn`, `rig.animate`, etc.).
+	- `Animated Java > DiamondFire > Base Templates > Get Required Templates` sends the core helpers (`rig.spawn`, `rig.animate`, etc.).  
+	- `Animated Java > DiamondFire > Base Templates > Get Optional Templates` sends useful helpers (`rig.setVariant`, offset helpers, etc.).  
+	- `Animated Java > DiamondFire > Base Templates > Get All Templates` sends both sets at once.
 2. Initialize each model once (for example in your setup/load code).  
 	- Use `rig.init.rig("<project_name>")` for one model, or `rig.init.rigs(<list>)` for multiple.
 3. Spawn a rig instance.  
 	- Use `rig.spawn(<entities_return_var>, "<instance_id>", "<project_name>", <location>)`.  
 	- `<instance_id>` is the unique runtime instance key, while `<project_name>` is the exported model id from the previous steps.
-4. Swap the rig variant when needed.  
-	- Use `rig.setVariant("<instance_id>", "<project_name>", "<variant_name>")`.  
-5. Animate the spawned instance.  
+4. Animate the spawned instance.  
 	- Use `rig.animate("<instance_id>", "<project_name>", "<animation_name>", <tick>, <interp_optional>)`.  
 	- `<tick>` is the current frame.  
 	- `<interp_optional>` should always match the amount of ticks waiting between each frame. (set to 0 to disable interpolation)  
 	- Use `rig.animate.noReset(...)` when you want to keep the rig-entities selection active after animating.  
 	- Use `rig.animate(...)` when you want that selection reset automatically and restore your previous selection.
-6. Removing the rig.  
+5. Removing the rig.  
 	- Use `rig.remove("<instance_id>")`.
 
 > [!NOTE]

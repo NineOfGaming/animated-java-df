@@ -12,6 +12,7 @@ import { Variant } from '../variants'
 import { hashAnimations, renderProjectAnimations } from './animationRenderer'
 import compileDataPack from './datapackCompiler'
 import {
+	type DFBaseTemplateCategory,
 	getDFBaseTemplateCount,
 	sendDFBaseTemplateToCodeClient,
 	sendDFBaseTemplatesToCodeClient,
@@ -240,17 +241,45 @@ export async function exportProjectDF() {
 	await exportProject({ df: true })
 }
 
-export async function exportDFBaseTemplates() {
+function formatDFBaseTemplateSetLabel(category?: DFBaseTemplateCategory) {
+	if (category == undefined) {
+		return {
+			lowercase: translate('misc.export.df_base_templates.set_name.all'),
+			titlecase: translate('misc.export.df_base_templates.set_name.all'),
+		}
+	}
+
+	return {
+		lowercase: translate(`misc.export.df_base_templates.set_name.${category}.lowercase`),
+		titlecase: translate(`misc.export.df_base_templates.set_name.${category}.titlecase`),
+	}
+}
+
+export async function exportDFBaseTemplates(category?: DFBaseTemplateCategory) {
 	try {
-		const templateCount = getDFBaseTemplateCount()
-		const templateLabel = templateCount === 1 ? 'template' : 'templates'
+		const templateCount = getDFBaseTemplateCount(category)
+		const templateLabel = translate(
+			templateCount === 1
+				? 'misc.export.df_base_templates.template_singular'
+				: 'misc.export.df_base_templates.template_plural'
+		)
+		const setLabel = formatDFBaseTemplateSetLabel(category)
 		Blockbench.showQuickMessage(
-			`Sending ${templateCount} DF base ${templateLabel} to CodeClient...`,
+			translate(
+				'misc.export.df_base_templates.sending',
+				String(templateCount),
+				setLabel.lowercase
+			),
 			2000
 		)
-		await sendDFBaseTemplatesToCodeClient()
+		await sendDFBaseTemplatesToCodeClient(category)
 		Blockbench.showQuickMessage(
-			`DF base ${templateLabel} delivered successfully! Sent ${templateCount}.`,
+			translate(
+				'misc.export.df_base_templates.success',
+				setLabel.titlecase,
+				String(templateCount),
+				templateLabel
+			),
 			2000
 		)
 	} catch (error) {
@@ -270,7 +299,10 @@ export async function exportDFBaseTemplates() {
 export async function exportDFBaseTemplate(templateName: string) {
 	try {
 		await sendDFBaseTemplateToCodeClient(templateName)
-		Blockbench.showQuickMessage(`DF base template "${templateName}" delivered successfully!`, 2000)
+		Blockbench.showQuickMessage(
+			translate('misc.export.df_base_template.success', templateName),
+			2000
+		)
 	} catch (error) {
 		console.error(error)
 		if (error instanceof Error) {
