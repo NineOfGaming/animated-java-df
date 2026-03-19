@@ -33,10 +33,18 @@ function updateMemoryRegistry() {
 		console.error('BlockState Registry not found in local storage')
 		return
 	}
+	for (const key of Object.keys(BLOCKSTATE_REGISTRY)) {
+		delete BLOCKSTATE_REGISTRY[key]
+	}
 	const registry = JSON.parse(registryString) as BlockStateRegistryJSON
 	for (const key in registry) {
 		BLOCKSTATE_REGISTRY[key] = new BlockStateRegistryEntry(registry[key])
 	}
+}
+
+function publishRegistryLoaded() {
+	updateMemoryRegistry()
+	requestAnimationFrame(() => EVENTS.BLOCKSTATE_REGISTRY_LOADED.publish())
 }
 
 async function updateLocalRegistry() {
@@ -70,27 +78,34 @@ export async function checkForRegistryUpdate() {
 	if (!currentValueString) {
 		console.log('No BlockState Registry found. Updating...')
 		await updateLocalRegistry()
-		return
-	}
-	const currentVersionString = localStorage.getItem('animated_java:blockStateRegistryVersion')
-	if (!currentVersionString) {
-		console.log('No BlockState Registry version found. Updating...')
-		await updateLocalRegistry()
-		return
-	}
-	const currentVersion = JSON.parse(currentVersionString)
-	const latestVersion = await getLatestVersion()
-	if (currentVersion.id !== latestVersion.id) {
-		console.log('BlockState Registry is outdated. Updating...')
-		await updateLocalRegistry()
-		return
+	} else {
+		const currentVersionString = localStorage.getItem('animated_java:blockStateRegistryVersion')
+		if (!currentVersionString) {
+			console.log('No BlockState Registry version found. Updating...')
+			await updateLocalRegistry()
+		} else {
+			const currentVersion = JSON.parse(currentVersionString)
+			const latestVersion = await getLatestVersion()
+			if (currentVersion.id !== latestVersion.id) {
+				console.log('BlockState Registry is outdated. Updating...')
+				await updateLocalRegistry()
+			} else {
+				console.log('BlockState Registry is up to date!')
+			}
+		}
 	}
 
-	console.log('BlockState Registry is up to date!')
-	updateMemoryRegistry()
-	requestAnimationFrame(() => EVENTS.BLOCKSTATE_REGISTRY_LOADED.publish())
+	publishRegistryLoaded()
 }
 
+EVENTS.PLUGIN_LOAD.subscribe(() => {
+	void checkForRegistryUpdate().catch(err => {
+		console.error(err)
+		EVENTS.PLUGIN_LOADING_ERROR.publish(
+			err instanceof Error ? err : new Error(String(err))
+		)
+	})
+})
 export async function getBlockState(block: string) {
 	if (Object.keys(BLOCKSTATE_REGISTRY).length === 0) {
 		return new Promise<BlockStateRegistryEntry | undefined>(resolve => {
@@ -101,9 +116,3 @@ export async function getBlockState(block: string) {
 	}
 	return BLOCKSTATE_REGISTRY[block]
 }
-
-EVENTS.PLUGIN_LOAD.subscribe(() => {
-	void checkForRegistryUpdate().catch(err => {
-		console.error(err)
-	})
-})

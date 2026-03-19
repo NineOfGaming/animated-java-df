@@ -118,12 +118,20 @@ function updateMemoryRegistry() {
 		console.error('Minecraft Registry not found in local storage')
 		return
 	}
+	for (const key of Object.keys(MINECRAFT_REGISTRY)) {
+		delete MINECRAFT_REGISTRY[key as keyof IRegistryJSON]
+	}
 	const registry = JSON.parse(registryString) as IRegistryJSON
 	for (const key in registry) {
 		MINECRAFT_REGISTRY[key as keyof IRegistryJSON] = new MinecraftRegistryEntry(
 			registry[key as keyof IRegistryJSON]
 		)
 	}
+}
+
+function publishRegistryLoaded() {
+	updateMemoryRegistry()
+	requestAnimationFrame(() => EVENTS.MINECRAFT_REGISTRY_LOADED.publish())
 }
 
 async function updateLocalRegistry() {
@@ -157,29 +165,34 @@ export async function checkForRegistryUpdate() {
 	if (!currentValueString) {
 		console.log('No Minecraft Registry found. Updating...')
 		await updateLocalRegistry()
-		return
-	}
-	const currentVersionString = localStorage.getItem('animated_java:minecraftRegistryVersion')
-	if (!currentVersionString) {
-		console.log('No Minecraft Registry version found. Updating...')
-		await updateLocalRegistry()
-		return
-	}
-	const currentVersion = JSON.parse(currentVersionString)
-	const latestVersion = await getLatestVersion()
-	if (currentVersion.id !== latestVersion.id) {
-		console.log('Minecraft Registry is outdated. Updating...')
-		await updateLocalRegistry()
-		return
+	} else {
+		const currentVersionString = localStorage.getItem('animated_java:minecraftRegistryVersion')
+		if (!currentVersionString) {
+			console.log('No Minecraft Registry version found. Updating...')
+			await updateLocalRegistry()
+		} else {
+			const currentVersion = JSON.parse(currentVersionString)
+			const latestVersion = await getLatestVersion()
+			if (currentVersion.id !== latestVersion.id) {
+				console.log('Minecraft Registry is outdated. Updating...')
+				await updateLocalRegistry()
+			} else {
+				console.log('Minecraft Registry is up to date!')
+			}
+		}
 	}
 
-	console.log('Minecraft Registry is up to date!')
-	updateMemoryRegistry()
-	requestAnimationFrame(() => EVENTS.MINECRAFT_REGISTRY_LOADED.publish())
+	publishRegistryLoaded()
 }
 
 EVENTS.NETWORK_CONNECTED.subscribe(() => {
-	void checkForRegistryUpdate().then(async () => {
+	void (async () => {
+		await checkForRegistryUpdate()
 		await checkForAssetsUpdate()
+	})().catch(err => {
+		console.error(err)
+		EVENTS.PLUGIN_LOADING_ERROR.publish(
+			err instanceof Error ? err : new Error(String(err))
+		)
 	})
 })
