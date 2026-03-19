@@ -698,10 +698,17 @@ function loadMinecraftFonts() {
 		vanillaFont.load(),
 		illagerFont.load(),
 		standardGalacticAlphabetFont.load(),
-	]).then(() => {
-		console.log('Minecraft fonts loaded!')
-		requestAnimationFrame(() => EVENTS.MINECRAFT_FONTS_LOADED.publish())
-	})
+	])
+		.then(() => {
+			console.log('Minecraft fonts loaded!')
+			requestAnimationFrame(() => EVENTS.MINECRAFT_FONTS_LOADED.publish())
+		})
+		.catch(err => {
+			console.error('Failed to load Minecraft fonts:', err)
+			EVENTS.PLUGIN_LOADING_ERROR.publish(
+				err instanceof Error ? err : new Error(String(err))
+			)
+		})
 }
 
 export async function getVanillaFont() {

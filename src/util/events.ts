@@ -19,6 +19,7 @@ const EVENTS = {
 	EXTRACT_MODS: subscribable<void>(),
 
 	NETWORK_CONNECTED: subscribable<void>(),
+	PLUGIN_LOADING_ERROR: subscribable<Error>(),
 
 	MINECRAFT_ASSETS_LOADED: subscribable<void>(),
 	MINECRAFT_REGISTRY_LOADED: subscribable<void>(),

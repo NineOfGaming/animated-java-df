@@ -8,6 +8,7 @@ import * as fs from 'fs'
 import index from '../../assets/vanillaAssetOverrides/index.json'
 
 import {
+	dismissLoadingPopup,
 	hideLoadingPopup,
 	showLoadingPopup,
 	showOfflineError,
@@ -163,23 +164,29 @@ export function getJSONAsset(path: string) {
 }
 
 EVENTS.PLUGIN_LOAD.subscribe(() => {
+	showLoadingPopup()
+
+	const loadingComplete = Promise.all([
+		new Promise<void>(resolve => EVENTS.MINECRAFT_ASSETS_LOADED.subscribe(resolve, true)),
+		new Promise<void>(resolve => EVENTS.MINECRAFT_REGISTRY_LOADED.subscribe(resolve, true)),
+		new Promise<void>(resolve => EVENTS.MINECRAFT_FONTS_LOADED.subscribe(resolve, true)),
+		new Promise<void>(resolve => EVENTS.BLOCKSTATE_REGISTRY_LOADED.subscribe(resolve, true)),
+	])
+	const loadingFailed = new Promise<never>((_, reject) => {
+		EVENTS.PLUGIN_LOADING_ERROR.subscribe(error => reject(error), true)
+	})
+
 	if (!window.navigator.onLine) {
 		showOfflineError()
 	}
 	EVENTS.NETWORK_CONNECTED.publish()
 
-	showLoadingPopup()
-
-	void Promise.all([
-		new Promise<void>(resolve => EVENTS.MINECRAFT_ASSETS_LOADED.subscribe(resolve)),
-		new Promise<void>(resolve => EVENTS.MINECRAFT_REGISTRY_LOADED.subscribe(resolve)),
-		new Promise<void>(resolve => EVENTS.MINECRAFT_FONTS_LOADED.subscribe(resolve)),
-		new Promise<void>(resolve => EVENTS.BLOCKSTATE_REGISTRY_LOADED.subscribe(resolve)),
-	])
+	void Promise.race([loadingComplete, loadingFailed])
 		.then(() => {
 			hideLoadingPopup()
 		})
 		.catch(error => {
+			dismissLoadingPopup()
 			console.error(error)
 			Blockbench.showToastNotification({
 				text: 'Animated Java failed to load! Please restart Blockbench',

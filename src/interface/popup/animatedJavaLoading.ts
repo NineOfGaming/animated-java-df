@@ -12,6 +12,10 @@ let mountedPopup: SvelteComponentDev | undefined
 
 export function showLoadingPopup() {
 	if (mountedPopup) return
+	LOADED.set(false)
+	OFFLINE.set(false)
+	PROGRESS.set(0)
+	PROGRESS_LABEL.set('')
 	mountedPopup = mountSvelteComponent({
 		component: AnimatedJavaLoadingPopup,
 		props: {
@@ -28,9 +32,7 @@ export function hideLoadingPopup() {
 	if (!mountedPopup) return
 	LOADED.set(true)
 	setTimeout(() => {
-		if (!mountedPopup) return
-		mountedPopup.$destroy()
-		mountedPopup = undefined
+		dismissLoadingPopup()
 	}, 2000)
 }
 
@@ -39,10 +41,14 @@ export function showOfflineError() {
 	OFFLINE.set(true)
 	// FIXME - Change this into a X button instead of a timeout.
 	setTimeout(() => {
-		if (!mountedPopup) return
-		mountedPopup.$destroy()
-		mountedPopup = undefined
+		dismissLoadingPopup()
 	}, 10000)
+}
+
+export function dismissLoadingPopup() {
+	if (!mountedPopup) return
+	mountedPopup.$destroy()
+	mountedPopup = undefined
 }
 
 export function updateLoadingProgress(progress: number) {
