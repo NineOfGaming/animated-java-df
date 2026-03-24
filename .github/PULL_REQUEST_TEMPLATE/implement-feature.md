@@ -2,8 +2,8 @@
 template: '✨ Implement Feature'
 about: A PR that implements a new feature or enhancement
 title: '✨ (#[ISSUE-ID]) [OVERVIEW]'
-labels: '✨ Enhancement'
-assignees: SnaveSutit
+labels: 'enhancement'
+assignees: NineOfGaming
 ---
 
 Please follow the directions below to complete this feature PR template.

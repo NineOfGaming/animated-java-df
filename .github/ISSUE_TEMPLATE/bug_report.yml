@@ -1,10 +1,10 @@
 name: 🐛 Bug Report
-description: Report a problem or bug you encountered while using Animated Java
+description: Report a problem or bug you encountered while using Animated Java DF
 title: 🐛 [BUG TITLE]
 labels:
-  - 🐛 Bug
+  - bug
 assignees:
-  - SnaveSutit
+  - NineOfGaming
 body:
   - type: markdown
     attributes:
@@ -12,7 +12,7 @@ body:
         # 👋 Thank You for Creating a Bug Report!
 
         Every issue that gets reported and fixed is an improvement for everyone
-        using Animated Java!
+        using Animated Java DF!
 
         Please fill out the following information to the best of your ability.
         Providing clear, and concise information will greatly improve the
@@ -27,17 +27,14 @@ body:
         new issue!
       options:
         - label: >-
-            I have searched [existing
-            bug reports](https://github.com/Animated-Java/animated-java/labels/%F0%9F%90%9B%20Bug) for
-            my problem.
+            I checked for existing issues about the same problem.
           required: true
         - label: >-
-            I have read the
-            [F-A-Q](https://animated-java.dev/docs/resources/faq).
+            I am sure that this is a bug with Animated Java DF, and not an issue with Animated Java itself, Blockbench, or my own setup.
           required: true
         - label: >-
             I am using the [latest
-            version](https://builds.animated-java.dev/latest) of Animated Java
+            version](https://github.com/NineOfGaming/animated-java-df/releases/latest) of Animated Java DF
           required: true
         - label: >-
             I will only report a single bug in this report. If I have found multiple
@@ -113,24 +110,6 @@ body:
 
         Provide details about your system and setup to help diagnose the issue.
 
-  - type: dropdown
-    id: mc-version
-    attributes:
-      label: 🟩 Minecraft Version
-      description: >-
-        The version of Minecraft you're using. (Only versions supported by the
-        latest version of Animated Java are listed).
-      options:
-        - 1.20.4
-        - 1.20.5
-        - 1.20.6
-        - 1.21.1
-        - 1.21.2
-        - 1.21.3
-        - 1.21.4
-    validations:
-      required: true
-
   - type: input
     id: bb-version
     attributes:
@@ -162,31 +141,3 @@ body:
         - Cameras
         - Double Sided Cubes
         - etc...
-
-  - type: textarea
-    id: environment
-    attributes:
-      label: ⛰️ Minecraft Environment
-      description: >-
-        A description of the Minecraft environment you're using, if it's not
-        strictly a vanilla single-player world or server.
-      placeholder: |
-        ## Server environment
-
-        I'm using a Paper server
-        - Paper build #174 for MC 1.20.1
-
-        I have the following plugins installed:
-        - Essentials
-        - Slimefun
-        - etc...
-
-        ## Client Environment
-
-        I'm using a Fabric modded client.
-        - Fabric loader 0.16.10 for Minecraft 1.20.1
-
-        I have the following mods installed:
-        - Sodium 1.0.0
-        - Starlight 1.0.0
-        - Create 1.0.0

@@ -1,10 +1,10 @@
 name: ✨ Feature Request
-description: Suggest a new feature or enhancement for Animated Java!
+description: Suggest a new feature or enhancement for Animated Java DF!
 title: ✨ [FEATURE TITLE]
 labels:
-  - ✨ Enhancement
+  - enhancement
 assignees:
-  - SnaveSutit
+  - NineOfGaming
 body:
   - type: markdown
     attributes:
@@ -24,16 +24,14 @@ body:
         new issue!
       options:
         - label: >-
-            I have searched [existing
-            feature requests](https://github.com/Animated-Java/animated-java/labels/%E2%9C%A8%20Enhancement) for
-            my feature.
+            I checked for existing issues or requests covering the same idea.
           required: true
         - label: >-
             I have read [the documentation](https://animated-java.dev/docs/), and I am sure this feature is not already implemented.
           required: true
         - label: >-
             I am using the [latest
-            version](https://builds.animated-java.dev/latest) of Animated Java.
+            version](https://github.com/NineOfGaming/animated-java-df/releases/latest) of Animated Java DF.
           required: true
         - label: >-
             I will only request a single feature in this request. If I have multiple

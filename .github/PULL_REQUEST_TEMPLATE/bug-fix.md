@@ -2,8 +2,8 @@
 template: '🐛 Bug Fix'
 about: A PR that fixes a bug or issue
 title: '🐛 Fix (#[ISSUE-ID]) [OVERVIEW]'
-labels: '🐛 Bug'
-assignees: SnaveSutit
+labels: 'bug'
+assignees: NineOfGaming
 ---
 
 Please follow the directions below to complete this bug fix PR template.
