@@ -17,7 +17,7 @@ import { MSLimiter } from '../../util/msLimiter'
 import { Variant } from '../../variants'
 import type { IRenderedAnimation } from '../animationRenderer'
 import mcbFiles from '../datapackCompiler/mcbFiles'
-import { IntentionalExportError } from '../exporter'
+import { IntentionalExportError } from '../errors'
 import { AJMeta, PackMeta, SUPPORTED_MINECRAFT_VERSIONS } from '../global'
 import { JsonText } from '../jsonText'
 import { JsonTextParser } from '../jsonText/parser'
@@ -654,14 +654,14 @@ async function createAnimationStorage(rig: IRenderedRig, animations: IRenderedAn
 				}
 				if (BONE_TYPES.includes(node.type)) {
 					thisFrame.set(
-						node.type.charAt(0) + '_' + node.storage_name,
+						node.storage_name,
 						new NbtCompound()
 							.set('transformation', matrixToNbtFloatArray(transform.matrix))
 							.set('start_interpolation', new NbtInt(0))
 					)
 				} else {
 					thisFrame.set(
-						node.type.charAt(0) + '_' + node.storage_name,
+						node.storage_name,
 						new NbtCompound()
 							.set('px', new NbtFloat(roundTo(transform.pos[0], 4)))
 							.set('py', new NbtFloat(roundTo(transform.pos[1], 4)))

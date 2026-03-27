@@ -1,6 +1,6 @@
 import { MAX_PROGRESS, PROGRESS, PROGRESS_DESCRIPTION } from '../../interface/dialog/exportProgress'
 import { getNextSupportedVersion, getResourcePackFormat } from '../../util/minecraftUtil'
-import { IntentionalExportError } from '../exporter'
+import { IntentionalExportError } from '../errors'
 import { type IRenderedRig } from '../rigRenderer'
 import type { ExportedFile } from '../util'
 
@@ -13,11 +13,13 @@ const VERSIONED_RESOURCE_PACK_COMPILERS: Record<
 	SUPPORTED_MINECRAFT_VERSIONS,
 	ResourcePackCompiler
 > = {
+	'1.21.11': EXPORT_1_21_4,
 	'1.21.9': EXPORT_1_21_4,
 	'1.21.6': EXPORT_1_21_4,
 	'1.21.5': EXPORT_1_21_4,
 	'1.21.4': EXPORT_1_21_4,
 	'1.21.2': EXPORT_1_21_2,
+	'1.21.0': EXPORT_1_21_2,
 	'1.20.5': EXPORT_1_20_4,
 	'1.20.4': EXPORT_1_20_4,
 }

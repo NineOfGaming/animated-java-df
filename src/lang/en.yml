@@ -133,7 +133,7 @@ animated_java.dialog.blueprint_settings.target_minecraft_version.description: |-
 
   If the version you are using is not available, select the closest version below it.
 
-  E.g If you are using `1.21.8`, select `1.21.5`.
+  E.g If you are using `1.21.10`, select `1.21.9`.
 
   Some features may be altered, or unavailable depending on the selected version.
 
@@ -275,10 +275,11 @@ animated_java.dialog.blueprint_settings.baked_animations.description: |-
 
 animated_java.dialog.blueprint_settings.json_file.title: JSON File
 animated_java.dialog.blueprint_settings.json_file.description: The path to the JSON file to export the project to.
+animated_java.dialog.blueprint_settings.json_file.error.invalid_path: Invalid file path!
 animated_java.dialog.blueprint_settings.json_file.error.no_file_selected: No file selected!
 animated_java.dialog.blueprint_settings.json_file.error.not_a_file: The selected path is not a file!
 
-## Bone Config Dialog
+## Display Entity Config Dialog
 animated_java.dialog.display_entity.title: Display Entity Config for "{0}"
 
 animated_java.dialog.display_entity.node_options.title: Node
@@ -718,7 +719,7 @@ animated_java.misc.failed_to_export.invalid_rotation.message: |-
 animated_java.misc.failed_to_export.invalid_rotation.message_post_1_21_6: |-
   Some cubes in your model have an invalid rotations!
 
-  Cubes can only be rotated on a single axis at a time when targeting Minecraft 1.21.6 or later.
+  Cubes can only be rotated on a single axis at a time when targeting Minecraft 1.21.6 through 1.21.10.
 
   If you want to rotate a cube on multiple axes, put it in a bone and rotate the bone instead.
 

@@ -172,7 +172,7 @@ function summon {
 					function *global/gu/get_entity_uuid_string
 				}
 				data modify entity @s data.uuids append from storage <%gu_storage%> out
-				data modify entity @s data.uuids_by_name.<%locator.type + '_' + locator.storage_name%> set from storage <%gu_storage%> out
+				data modify entity @s data.uuids_by_name.<%locator.storage_name%> set from storage <%gu_storage%> out
 				data modify entity @s data.locators.<%locator.storage_name%>.uuid set from storage <%gu_storage%> out
 			}
 
@@ -195,7 +195,7 @@ function summon {
 					function *global/gu/get_entity_uuid_string
 				}
 				data modify entity @s data.uuids append from storage <%gu_storage%> out
-				data modify entity @s data.uuids_by_name.<%camera.type + '_' + camera.storage_name%> set from storage <%gu_storage%> out
+				data modify entity @s data.uuids_by_name.<%camera.storage_name%> set from storage <%gu_storage%> out
 				data modify entity @s data.cameras.<%camera.storage_name%>.uuid set from storage <%gu_storage%> out
 			}
 
@@ -208,7 +208,7 @@ function summon {
 					function *global/gu/get_entity_uuid_string
 
 				data modify entity @s data.uuids append from storage <%gu_storage%> out
-				data modify entity @s data.uuids_by_name.<%node.type + '_' + node.storage_name%> set from storage <%gu_storage%> out
+				data modify entity @s data.uuids_by_name.<%node.storage_name%> set from storage <%gu_storage%> out
 			}
 		}
 
@@ -300,8 +300,78 @@ function summon {
 	}
 }
 
+function as_node {
+	#ARGS: {name: string, command: string}
+	debug assert executed_as_root_entity <%TAGS.PROJECT_ROOT(export_namespace)%>
+	data remove storage <%temp_storage%> args
+	$data modify storage <%temp_storage%> args merge value {name:'$(name)', command:'$(command)', uuid:'+MISSING_UUID+'}
+
+	IF (debug_mode) {
+		execute if data storage <%temp_storage%> {args:{name:''}} run return run tellraw @a <%TELLRAW.ARGUMENT_CANNOT_BE_EMPTY('name')%>
+		execute if data storage <%temp_storage%> {args:{command:''}} run return run tellraw @a <%TELLRAW.ARGUMENT_CANNOT_BE_EMPTY('command')%>
+	}
+
+	execute on passengers if entity @s[tag=<%TAGS.GLOBAL_DATA()%>] run block zzz/as_node/as_data { with storage <%temp_storage%> args
+		$data modify storage <%temp_storage%> args.uuid set from entity @s data.uuids_by_name.$(name)
+		IF (debug_mode) {
+			scoreboard players set #aj.check <%OBJECTIVES.I()%> 0
+		}
+		block execute_as_uuid { with storage <%temp_storage%> args
+			IF (debug_mode) {
+				# If the function successfully instantiated, the provided command is valid.
+				scoreboard players set #aj.check <%OBJECTIVES.I()%> 1
+			}
+			$execute as $(uuid) run return run $(command)
+			IF (debug_mode) {
+				# If the entity with the provided UUID doesn't exist, the node wasn't found.
+				tellraw @a <%TELLRAW.NODE_ENTITY_NOT_FOUND()%>
+			}
+		}
+		IF (debug_mode) {
+			execute if score #aj.check <%OBJECTIVES.I()%> matches 0 run tellraw @a <%TELLRAW.NODE_COMMAND_FAILED_TO_EXECUTE()%>
+		}
+	}
+}
+
 IF (has_entity_locators) {
 	function as_locator {
+		#ARGS: {name: string, command: string}
+		debug assert executed_as_root_entity <%TAGS.PROJECT_ROOT(export_namespace)%>
+
+		data remove storage <%temp_storage%> args
+		$data modify storage <%temp_storage%> args merge value {name:'$(name)', command:'$(command)', uuid:'+MISSING_UUID+'}
+
+		IF (debug_mode) {
+			execute if data storage <%temp_storage%> {args:{name:''}} run return run tellraw @a <%TELLRAW.ARGUMENT_CANNOT_BE_EMPTY('name')%>
+			execute if data storage <%temp_storage%> {args:{command:''}} run return run tellraw @a <%TELLRAW.ARGUMENT_CANNOT_BE_EMPTY('command')%>
+		}
+
+		execute \
+			on passengers \
+			if entity @s[tag=<%TAGS.GLOBAL_DATA()%>] \
+		run block zzz/as_locator/as_data { with storage <%temp_storage%> args
+			$data modify storage <%temp_storage%> args.uuid set from entity @s data.locators.$(name).uuid
+			IF (debug_mode) {
+				scoreboard players set #aj.check <%OBJECTIVES.I()%> 0
+			}
+			block execute_as_uuid { with storage <%temp_storage%> args
+				IF (debug_mode) {
+					# If the function successfully instantiated, the provided command is valid.
+					scoreboard players set #aj.check <%OBJECTIVES.I()%> 1
+				}
+				$execute as $(uuid) run return run $(command)
+				IF (debug_mode) {
+					# If the entity with the provided UUID doesn't exist, the locator wasn't found.
+					tellraw @a <%TELLRAW.LOCATOR_ENTITY_NOT_FOUND()%>
+				}
+			}
+			IF (debug_mode) {
+				execute if score #aj.check <%OBJECTIVES.I()%> matches 0 run tellraw @a <%TELLRAW.LOCATOR_COMMAND_FAILED_TO_EXECUTE()%>
+			}
+		}
+	}
+
+	function as_at_locator {
 		#ARGS: {name: string, command: string}
 		debug assert executed_as_root_entity <%TAGS.PROJECT_ROOT(export_namespace)%>
 
@@ -352,8 +422,57 @@ IF (has_entity_locators) {
 		execute on passengers if entity @s[tag=<%TAGS.GLOBAL_DATA()%>] run block zzz/as_all_locators/as_data {
 			REPEAT (Object.values(rig.nodes).filter(node => node.type === 'locator' && node.config?.use_entity)) as locator {
 				data modify storage <%temp_storage%> args.uuid set from entity @s data.locators.<%locator.storage_name%>.uuid
+
+				IF (debug_mode) {
+					scoreboard players set #aj.check <%OBJECTIVES.I()%> 0
+				}
+
 				block execute_as_uuid { with storage <%temp_storage%> args
-					$execute as $(uuid) at @s run $(command)
+					IF (debug_mode) {
+						# If the function successfully instantiated, the provided command is valid.
+						scoreboard players set #aj.check <%OBJECTIVES.I()%> 1
+					}
+
+					$execute as $(uuid) run return run $(command)
+				}
+
+				IF (debug_mode) {
+					execute if score #aj.check <%OBJECTIVES.I()%> matches 0 run tellraw @a <%TELLRAW.LOCATOR_COMMAND_FAILED_TO_EXECUTE({text: locator.storage_name, color: 'aqua'})%>
+				}
+			}
+		}
+	}
+
+	function as_at_all_locators {
+		#ARGS: {command: string}
+		debug assert executed_as_root_entity <%TAGS.PROJECT_ROOT(export_namespace)%>
+
+		data remove storage <%temp_storage%> args
+		$data modify storage <%temp_storage%> args merge value {command:'$(command)'}
+
+		IF (debug_mode) {
+			execute if data storage <%temp_storage%> {args:{command:''}} run return run tellraw @a <%TELLRAW.ARGUMENT_CANNOT_BE_EMPTY('command')%>
+		}
+
+		execute on passengers if entity @s[tag=<%TAGS.GLOBAL_DATA()%>] run block zzz/as_all_locators/as_data {
+			REPEAT (Object.values(rig.nodes).filter(node => node.type === 'locator' && node.config?.use_entity)) as locator {
+				data modify storage <%temp_storage%> args.uuid set from entity @s data.locators.<%locator.storage_name%>.uuid
+
+				IF (debug_mode) {
+					scoreboard players set #aj.check <%OBJECTIVES.I()%> 0
+				}
+
+				block execute_as_uuid { with storage <%temp_storage%> args
+					IF (debug_mode) {
+						# If the function successfully instantiated, the provided command is valid.
+						scoreboard players set #aj.check <%OBJECTIVES.I()%> 1
+					}
+
+					$execute as $(uuid) at @s run return run $(command)
+				}
+
+				IF (debug_mode) {
+					execute if score #aj.check <%OBJECTIVES.I()%> matches 0 run tellraw @a <%TELLRAW.LOCATOR_COMMAND_FAILED_TO_EXECUTE({text: locator.storage_name, color: 'aqua'})%>
 				}
 			}
 		}
@@ -417,11 +536,25 @@ IF (has_locators) {
 		execute at @s on passengers if entity @s[tag=<%TAGS.GLOBAL_DATA()%>] run block zzz/at_all_locators/as_data {
 			REPEAT (Object.values(rig.nodes).filter(node => node.type === 'locator')) as locator {
 				data modify storage <%temp_storage%> args merge from entity @s data.locators.<%locator.storage_name%>
+
+				IF (debug_mode) {
+					scoreboard players set #aj.check <%OBJECTIVES.I()%> 0
+				}
+
 				block execute_at_transform { with storage <%temp_storage%> args
+					IF (debug_mode) {
+						# If the function successfully instantiated, the provided command is valid.
+						scoreboard players set #aj.check <%OBJECTIVES.I()%> 1
+					}
+
 					$execute \
 						positioned ^$(px) ^$(py) ^$(pz) \
 						rotated ~$(ry) ~$(rx) \
 					run $(command)
+				}
+
+				IF (debug_mode) {
+					execute if score #aj.check <%OBJECTIVES.I()%> matches 0 run tellraw @a <%TELLRAW.LOCATOR_COMMAND_FAILED_TO_EXECUTE({text: locator.storage_name, color: 'aqua'})%>
 				}
 			}
 		}

@@ -9,47 +9,12 @@ import { isResourcePackPath } from '../util/minecraftUtil'
 import { translate } from '../util/translation'
 import { Variant } from '../variants'
 import { hashAnimations, renderProjectAnimations } from './animationRenderer'
+import { exportPluginBlueprint } from './pluginCompiler'
 import compileDataPack from './datapackCompiler'
+import { IntentionalExportError } from './errors'
 import resourcepackCompiler from './resourcepackCompiler'
 import { hashRig, renderRig } from './rigRenderer'
 import { isCubeValid } from './util'
-
-export class IntentionalExportError extends Error {
-	constructor(
-		message: string,
-		public messageBoxOptions?: MessageBoxOptions,
-		public messageBoxCallback?: Parameters<typeof Blockbench.showMessageBox>[1]
-	) {
-		super(message)
-		this.name = 'IntentionalExportError'
-	}
-}
-
-export class IntentionalExportErrorFromInvalidFile extends IntentionalExportError {
-	constructor(filePath: string, public originalError: Error) {
-		const parsed = PathModule.parse(filePath)
-		super(
-			`Failed to read file <code title="${filePath}">${parsed.base}</code>:\n\n` +
-				'```\n' +
-				originalError +
-				'\n```',
-			{
-				commands: {
-					open_file: {
-						text: 'Open File Location',
-						icon: 'folder_open',
-					},
-				},
-			},
-			button => {
-				if (button === 'open_file') {
-					shell.showItemInFolder(filePath)
-				}
-			}
-		)
-		this.name = 'IntentionalExportErrorFromInvalidFile'
-	}
-}
 
 export function getExportPaths() {
 	const aj = Project!.animated_java
@@ -164,7 +129,7 @@ async function actuallyExportProject({
 			debugMode,
 		})
 
-		if (aj.data_pack_export_mode !== 'none') {
+		if (!aj.enable_plugin_mode && aj.data_pack_export_mode !== 'none') {
 			await compileDataPack([aj.target_minecraft_version], {
 				rig,
 				animations,
@@ -173,6 +138,11 @@ async function actuallyExportProject({
 				animationHash,
 				debugMode,
 			})
+		}
+
+		if (aj.enable_plugin_mode) {
+			PROGRESS_DESCRIPTION.set('Exporting Plugin JSON...')
+			exportPluginBlueprint({ rig, animations })
 		}
 
 		Project!.last_used_export_namespace = aj.export_namespace

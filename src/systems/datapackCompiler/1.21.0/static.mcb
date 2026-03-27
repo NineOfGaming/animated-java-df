@@ -26,7 +26,7 @@ dir root {
 					if entity @s[tag=<%TAGS.GLOBAL_DATA()%>] \
 				run function ./on_tick/transform_floating_entities
 			}
-			execute on passengers run rotate @s ~ ~
+			execute on passengers run tp @s ~ ~ ~ ~ ~
 		} ELSE IF (has_ticking_locators) {
 			execute \
 				on passengers \
@@ -56,7 +56,7 @@ dir root {
 								tp @s ~ ~ ~ ~ ~
 
 								IF (locator.config?.sync_passenger_rotation) {
-									execute on passengers run rotate @s ~ ~
+									execute on passengers run tp @s ~ ~ ~ ~ ~
 								}
 
 								IF (locator.config?.on_tick_function) {
@@ -108,7 +108,7 @@ IF (!auto_update_rig_orientation) {
 				if entity @s[tag=<%TAGS.GLOBAL_DATA()%>] \
 			run function ./on_tick/transform_floating_entities
 		}
-		execute at @s on passengers run rotate @s ~ ~
+		execute at @s on passengers run tp @s ~ ~ ~ ~ ~
 	}
 } ELSE {
 	function move {
@@ -253,7 +253,7 @@ function summon {
 				if entity @s[tag=<%TAGS.GLOBAL_DATA()%>] \
 			run function ./on_tick/transform_floating_entities
 		}
-		execute on passengers run rotate @s ~ ~
+		execute on passengers run tp @s ~ ~ ~ ~ ~
 
 		# Apply teleport duration
 		data modify entity @s teleport_duration set value <%teleportation_duration%>
@@ -719,9 +719,9 @@ IF (Object.keys(rig.variants).length > 1) {
 								IF (node.type === 'bone' && variant.models[node.uuid] !== undefined) {
 									# Special case for `animated_java:empty` model.
 									IF (variant.models[node.uuid].model === null) {
-										data modify entity @s item.components."minecraft:custom_model_data".strings[0] set value "AJ_INTERNAL_EMPTY"
+										data modify entity @s item.components."minecraft:item_model" set value "animated_java:empty"
 									} ELSE {
-										data modify entity @s item.components."minecraft:custom_model_data".strings[0] set value "<%variant.name%>"
+										data modify entity @s item.components."minecraft:item_model" set value "<%variant.models[node.uuid].item_model%>"
 									}
 								}
 								IF (node.configs.variants[variant.uuid]) {

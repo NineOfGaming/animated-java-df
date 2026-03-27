@@ -1,4 +1,4 @@
-import KofiPopup from 'src/components/kofiPopup.svelte'
+import BlueprintSettingsAds from 'src/components/blueprintSettingsAds.svelte'
 import { updateAllCubeOutlines } from 'src/mods/cube'
 import { SUPPORTED_MINECRAFT_VERSIONS } from 'src/systems/global'
 import BlueprintSettingsDialogSvelteComponent from '../../components/blueprintSettingsDialog.svelte'
@@ -126,7 +126,7 @@ export function openBlueprintSettingsDialog() {
 			props: settings,
 		},
 		extra: {
-			component: KofiPopup,
+			component: BlueprintSettingsAds,
 		},
 		contentStyle: {
 			marginTop: '10px',

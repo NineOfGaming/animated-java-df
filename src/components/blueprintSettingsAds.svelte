@@ -1,4 +1,5 @@
 <script lang="ts" context="module">
+	import BisectHostingBanner from '../assets/banners/bisect-hosting-promo-banner.png'
 	import HeartIcon from '../assets/heart.png'
 	import KoFiImage from '../assets/kofi_tag_white.webp'
 
@@ -48,7 +49,37 @@
 	</div>
 {/if}
 
+<div>
+	<div class="bisect-hosting-banner-container">
+		<a href="https://www.bisecthosting.com/animated-java">
+			<img class="bisect-hosting-banner" src={BisectHostingBanner} alt="" />
+		</a>
+	</div>
+</div>
+
 <style>
+	.bisect-hosting-banner-container {
+		position: absolute;
+		left: 0;
+		text-align: center;
+		margin-left: auto;
+		margin-right: auto;
+		right: 0;
+		width: 75%;
+		margin-top: 4px;
+	}
+	.bisect-hosting-banner {
+		width: 100%;
+		border-radius: 8px;
+		vertical-align: middle;
+		image-rendering: auto;
+		transition: transform 0.2s ease;
+	}
+	.bisect-hosting-banner:hover {
+		transform: scale(1.02);
+		transition: transform 0.2s ease;
+	}
+
 	i {
 		cursor: pointer;
 		height: fit-content;

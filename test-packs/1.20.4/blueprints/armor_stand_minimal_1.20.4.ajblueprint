@@ -1,7 +1,7 @@
 {
 	"meta": {
 		"format": "animated-java:format/blueprint",
-		"format_version": "1.8.0",
+		"format_version": "1.8.1",
 		"uuid": "173aa82f-fb4f-c354-ad34-a34d7fbce647",
 		"save_location": "D:\\github-repos\\animated-java\\old-animated-java\\test-packs\\1.20.4\\blueprints\\armor_stand_minimal_1.20.4.ajblueprint",
 		"last_used_export_namespace": "armor_stand_minimal"
@@ -447,6 +447,7 @@
 			"name": "root",
 			"origin": [0, 0, 0],
 			"color": 0,
+			"onSummonFunction": "",
 			"configs": {
 				"default": {
 					"billboard": "fixed",
@@ -476,6 +477,7 @@
 					"name": "baseplate_root",
 					"origin": [0, 0, 0],
 					"color": 0,
+					"onSummonFunction": "",
 					"configs": {
 						"default": {
 							"billboard": "fixed",
@@ -505,6 +507,7 @@
 							"name": "baseplate_pivot_a",
 							"origin": [0, 1, 6],
 							"color": 0,
+							"onSummonFunction": "",
 							"configs": {
 								"default": {
 									"billboard": "fixed",
@@ -537,6 +540,7 @@
 					"name": "armor_stand_root",
 					"origin": [0, 1, 0],
 					"color": 0,
+					"onSummonFunction": "",
 					"configs": {
 						"default": {
 							"billboard": "fixed",
@@ -567,6 +571,7 @@
 							"name": "waist_pivot",
 							"origin": [0, 12, 0],
 							"color": 0,
+							"onSummonFunction": "",
 							"configs": {
 								"default": {
 									"billboard": "fixed",
@@ -599,6 +604,7 @@
 									"name": "body_waist_pivot",
 									"origin": [0, 12, 0],
 									"color": 0,
+									"onSummonFunction": "",
 									"configs": {
 										"default": {
 											"billboard": "fixed",
@@ -631,6 +637,7 @@
 											"name": "body",
 											"origin": [0, 24, 0],
 											"color": 0,
+											"onSummonFunction": "",
 											"configs": {
 												"default": {
 													"billboard": "fixed",
@@ -696,6 +703,7 @@
 													"name": "head",
 													"origin": [0, 23, 0],
 													"color": 0,
+													"onSummonFunction": "",
 													"configs": {
 														"default": {
 															"billboard": "fixed",
@@ -744,6 +752,7 @@
 													"name": "left_arm",
 													"origin": [-6, 23, 0],
 													"color": 0,
+													"onSummonFunction": "",
 													"configs": {
 														"default": {
 															"billboard": "fixed",
@@ -792,6 +801,7 @@
 													"name": "right_arm",
 													"origin": [6, 23, 0],
 													"color": 0,
+													"onSummonFunction": "",
 													"configs": {
 														"default": {
 															"billboard": "fixed",
@@ -844,6 +854,7 @@
 									"name": "left_leg",
 									"origin": [2, 12, 0],
 									"color": 0,
+									"onSummonFunction": "",
 									"configs": {
 										"default": {
 											"billboard": "fixed",
@@ -890,6 +901,7 @@
 									"name": "right_leg",
 									"origin": [-2, 12, 0],
 									"color": 0,
+									"onSummonFunction": "",
 									"configs": {
 										"default": {
 											"billboard": "fixed",

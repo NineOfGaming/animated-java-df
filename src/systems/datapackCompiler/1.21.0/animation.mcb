@@ -1,7 +1,29 @@
 # TODO - Move all internal functions into an internal namespace, and only have user-facing functions in the main `animated_java:<%export_namespace%>` namespace.
 import ../global.mcbt
+
 function on_load {
 	data modify storage <%project_storage%> rig_hash set value <%"'" + rig_hash + "'"%>
+
+	IF (use_storage_for_animation) {
+		REPEAT (animations) as animation {
+			data remove storage <%project_storage%>/animations <%animation.storage_name%>
+		}
+		<%animationStorage.join('\n')%>
+	}
+	<%%
+		animations.forEach(animation => {
+			emit(`scoreboard objectives add ${OBJECTIVES.FRAME(animation.storage_name)} dummy`)
+		})
+	%%>
+}
+
+function remove_animation_objectives {
+	<%%
+		animations.forEach(animation => {
+			emit(`scoreboard objectives remove ${OBJECTIVES.FRAME(animation.storage_name)}`)
+		})
+	%%>
+	tellraw @a <%TELLRAW.UNINSTALL()%>
 }
 
 function invalid_version_warning {
@@ -19,6 +41,25 @@ dir root {
 			%%>
 		}
 
+		# Once we have more than 8 animations, calling a function only if at least one animation is playing is more efficient.
+		IF (animations.length > 8) {
+			# If no animations are playing, we can skip all animation logic.
+			# This helps reduce ticking commands for rigs that are idle.
+			execute \
+				unless entity @s[<%animations.map(anim => 'tag=!' + TAGS.ANIMATION_PLAYING(export_namespace, anim.storage_name)).join(',')%>] \
+			run block tick_animations {
+				REPEAT (animations) as animation {
+					execute if entity @s[tag=<%TAGS.ANIMATION_PLAYING(export_namespace, animation.storage_name)%>] run \
+						function *<%export_namespace%>/animations/<%animation.storage_name%>/zzz/on_tick
+				}
+			}
+		} ELSE {
+			REPEAT (animations) as animation {
+				execute if entity @s[tag=<%TAGS.ANIMATION_PLAYING(export_namespace, animation.storage_name)%>] run \
+					function *<%export_namespace%>/animations/<%animation.storage_name%>/zzz/on_tick
+			}
+		}
+
 		IF (auto_update_rig_orientation) {
 			IF (has_locators || has_cameras) {
 				execute \
@@ -26,7 +67,7 @@ dir root {
 					if entity @s[tag=<%TAGS.GLOBAL_DATA()%>] \
 				run function ./on_tick/transform_floating_entities
 			}
-			execute on passengers run rotate @s ~ ~
+			execute on passengers run tp @s ~ ~ ~ ~ ~
 		} ELSE IF (has_ticking_locators) {
 			execute \
 				on passengers \
@@ -56,7 +97,7 @@ dir root {
 								tp @s ~ ~ ~ ~ ~
 
 								IF (locator.config?.sync_passenger_rotation) {
-									execute on passengers run rotate @s ~ ~
+									execute on passengers run tp @s ~ ~ ~ ~ ~
 								}
 
 								IF (locator.config?.on_tick_function) {
@@ -108,7 +149,7 @@ IF (!auto_update_rig_orientation) {
 				if entity @s[tag=<%TAGS.GLOBAL_DATA()%>] \
 			run function ./on_tick/transform_floating_entities
 		}
-		execute at @s on passengers run rotate @s ~ ~
+		execute at @s on passengers run tp @s ~ ~ ~ ~ ~
 	}
 } ELSE {
 	function move {
@@ -116,10 +157,346 @@ IF (!auto_update_rig_orientation) {
 	}
 }
 
-function summon {
-	#Args: {args:{variant: string}}
+dir animations {
+	REPEAT (animations) as animation {
+		dir <%animation.storage_name%> {
+			function play {
+				debug assert executed_as_root_entity <%TAGS.PROJECT_ROOT(export_namespace)%>
 
-	data modify storage <%temp_storage%> args set value {variant:''}
+				function *<%export_namespace%>/animations/pause_all
+
+				tag @s add <%TAGS.ANIMATION_PLAYING(export_namespace, animation.storage_name)%>
+				scoreboard players set @s <%OBJECTIVES.FRAME(animation.storage_name)%> 0
+				tag @s add <%TAGS.TRANSFORMS_ONLY()%>
+				execute at @s run function ./zzz/set_frame {frame: 0}
+				tag @s remove <%TAGS.TRANSFORMS_ONLY()%>
+			}
+
+			function stop {
+				debug assert executed_as_root_entity <%TAGS.PROJECT_ROOT(export_namespace)%>
+
+				function *<%export_namespace%>/animations/pause_all
+
+				scoreboard players set @s <%OBJECTIVES.FRAME(animation.storage_name)%> 0
+				tag @s add <%TAGS.TRANSFORMS_ONLY()%>
+				execute at @s run function ./zzz/set_frame {frame: 0}
+				tag @s remove <%TAGS.TRANSFORMS_ONLY()%>
+			}
+
+			function pause {
+				debug assert executed_as_root_entity <%TAGS.PROJECT_ROOT(export_namespace)%>
+
+				tag @s remove <%TAGS.ANIMATION_PLAYING(export_namespace, animation.storage_name)%>
+			}
+
+			function resume {
+				debug assert executed_as_root_entity <%TAGS.PROJECT_ROOT(export_namespace)%>
+
+				tag @s add <%TAGS.ANIMATION_PLAYING(export_namespace, animation.storage_name)%>
+			}
+
+			function next_frame {
+				debug assert executed_as_root_entity <%TAGS.PROJECT_ROOT(export_namespace)%>
+
+				execute if score @s <%OBJECTIVES.FRAME(animation.storage_name)%> matches <%animation.duration%>.. run scoreboard players set @s <%OBJECTIVES.FRAME(animation.storage_name)%> 1
+				data remove storage <%temp_storage%> args
+				execute store result storage <%temp_storage%> args.frame int 1 run scoreboard players get @s <%OBJECTIVES.FRAME(animation.storage_name)%>
+				execute at @s run function ./zzz/apply_frame with storage <%temp_storage%> args
+				scoreboard players add @s <%OBJECTIVES.FRAME(animation.storage_name)%> 1
+			}
+
+			function set_frame {
+				# Sets the frame without interpolation
+				#ARGS: {frame: int}
+				debug assert executed_as_root_entity <%TAGS.PROJECT_ROOT(export_namespace)%>
+
+				data remove storage <%temp_storage%> args
+				$execute store result storage <%temp_storage%> args.frame int 1 run scoreboard players set @s <%OBJECTIVES.FRAME(animation.storage_name)%> $(frame)
+				execute at @s run function ./zzz/set_frame with storage <%temp_storage%> args
+			}
+
+			function apply_frame {
+				#ARGS: {frame: int}
+				debug assert executed_as_root_entity <%TAGS.PROJECT_ROOT(export_namespace)%>
+
+				data remove storage <%temp_storage%> args
+				$execute store result storage <%temp_storage%> args.frame int 1 run scoreboard players set @s <%OBJECTIVES.FRAME(animation.storage_name)%> $(frame)
+				execute at @s run function ./zzz/apply_frame with storage <%temp_storage%> args
+			}
+
+			function tween {
+				# Attempts to smoothly transition from the currently playing animation into this one.
+				#ARGS: {duration: int, to_frame: int}
+				debug assert executed_as_root_entity <%TAGS.PROJECT_ROOT(export_namespace)%>
+
+				function *<%export_namespace%>/animations/pause_all
+
+				tag @s add <%TAGS.ANIMATION_PLAYING(export_namespace, animation.storage_name)%>
+				$scoreboard players set @s <%OBJECTIVES.TWEEN_DURATION()%> $(duration)
+				$scoreboard players set @s <%OBJECTIVES.FRAME(animation.storage_name)%> $(to_frame)
+
+				scoreboard players operation #this <%OBJECTIVES.I()%> = @s <%OBJECTIVES.TWEEN_DURATION()%>
+				tag @s add <%TAGS.TRANSFORMS_ONLY()%>
+				execute at @s run function ./zzz/apply_frame {frame: 0}
+				$execute at @s run function ./zzz/apply_frame {frame: $(to_frame)}
+				tag @s remove <%TAGS.TRANSFORMS_ONLY()%>
+				execute on passengers store result entity @s interpolation_duration int 1 run scoreboard players get #this <%OBJECTIVES.I()%>
+			}
+
+			dir zzz {
+				function on_tick {
+					# Tweening logic
+					scoreboard players remove @s <%OBJECTIVES.TWEEN_DURATION()%> 1
+					execute if score @s <%OBJECTIVES.TWEEN_DURATION()%> matches 1.. run return 1
+					execute if score @s <%OBJECTIVES.TWEEN_DURATION()%> matches 0 on passengers run \
+						data modify entity @s interpolation_duration set value <%interpolation_duration%>
+					# Animation logic
+					IF (animation.loop_mode === 'loop' && animation.loop_delay === 0) {
+						# Makes sure function keyframes in the last frame of the animation are activated.
+						execute if score @s <%OBJECTIVES.FRAME(animation.storage_name)%> matches -1 run \
+							block function_keyframe_loop_patch {
+								function ./apply_frame {frame: <%animation.duration-1%>}
+								scoreboard players add @s <%OBJECTIVES.FRAME(animation.storage_name)%> 1
+							}
+					}
+					data remove storage <%temp_storage%> args
+					execute store result storage <%temp_storage%> args.frame int 1 run \
+						scoreboard players get @s <%OBJECTIVES.FRAME(animation.storage_name)%>
+					function ./apply_frame with storage <%temp_storage%> args
+					IF (animation.loop_mode === 'loop') {
+						# Loop the animation back to the start once it reaches the last frame.
+						# If loop_delay is 0, the animation will loop instantly, otherwise, it will wait for the specified amount of ticks.
+						execute \
+							if score @s <%OBJECTIVES.FRAME(animation.storage_name)%> \
+							matches <%animation.duration-2 + animation.loop_delay%>.. \
+						run return run \
+							scoreboard players set @s <%OBJECTIVES.FRAME(animation.storage_name)%> <%animation.loop_delay === 0 ? -1 : 0%>
+					} ELSE IF (animation.loop_mode === 'hold') {
+						# Pause the animation at the last frame.
+						execute \
+							if score @s <%OBJECTIVES.FRAME(animation.storage_name)%> \
+							matches <%animation.duration-1%>.. \
+						run return run \
+							function ../pause
+					} ELSE IF (animation.loop_mode === 'once') {
+						# Stop the animation once it reaches the last frame.
+						execute \
+							if score @s <%OBJECTIVES.FRAME(animation.storage_name)%> \
+							matches <%animation.duration-1%> \
+						run return run block loop_mode_stop {
+							scoreboard players set @s <%OBJECTIVES.FRAME(animation.storage_name)%> 0
+							tag @s add <%TAGS.TRANSFORMS_ONLY()%>
+							execute at @s run function ./zzz/set_frame {frame: 0}
+							tag @s remove <%TAGS.TRANSFORMS_ONLY()%>
+							tag @s remove <%TAGS.ANIMATION_PLAYING(export_namespace, animation.storage_name)%>
+						}
+					}
+					scoreboard players add @s <%OBJECTIVES.FRAME(animation.storage_name)%> 1
+				}
+
+				IF (use_storage_for_animation) {
+					function set_frame {
+						#ARGS: {frame: int}
+						$function ./apply_frame {frame: $(frame)}
+						execute on passengers run data modify entity @s[tag=!<%TAGS.GLOBAL_DATA()%>] start_interpolation set value -1
+						return 1
+					}
+
+					function apply_frame {
+						#ARGS: {frame: int}
+						REPEAT (Object.values(animation.modified_nodes).sort(nodeSorter)) as node {
+							IF (BONE_TYPES.includes(node.type)) {
+								$execute on passengers if entity @s[tag=<%TAGS.PROJECT_NODE_NAMED(export_namespace, node.storage_name)%>] run \
+									data modify entity @s {} merge from \
+										storage <%project_storage%>/animations <%animation.storage_name%>.$(frame).<%node.storage_name%>
+							} ELSE IF (node.type === 'locator' || node.type === 'camera') {
+								$execute on passengers if entity @s[tag=<%TAGS.GLOBAL_DATA()%>] run \
+									$data modify entity @s data.uuids_by_name.<%node.storage_name%> merge from \
+										storage <%project_storage%>/animations <%animation.storage_name%>.$(frame).<%node.storage_name%>
+							}
+						}
+
+						IF (animation.frames.some(anim => anim.variant)) {
+							$execute \
+								if data storage <%project_storage%>/animations <%animation.storage_name%>.$(frame).variant \
+								unless entity @s[tag=<%TAGS.TRANSFORMS_ONLY()%>] \
+							run { with storage <%project_storage%>/animations <%animation.storage_name%>.$(frame).variant
+								#ARGS: {name: string, condition: string}
+								$execute $(condition)run function *<%export_namespace%>/variants/$(name)/apply
+							}
+						}
+
+						return 1
+					}
+				} ELSE {
+					function set_frame {
+						# Sets the frame without interpolation
+						#ARGS: {frame: int}
+						$execute on passengers if entity @s[tag=<%TAGS.GLOBAL_DATA()%>] run \
+							function ./frames/$(frame) with entity @s data.uuids_by_name
+
+						execute on passengers if entity @s[tag=!<%TAGS.GLOBAL_DATA()%>] run \
+							data modify entity @s start_interpolation set value -1
+
+						return 1
+					}
+
+					function apply_frame {
+						#ARGS: {frame: int}
+						$execute on passengers if entity @s[tag=<%TAGS.GLOBAL_DATA()%>] run \
+							function ./frames/$(frame) with entity @s data.uuids_by_name
+
+						return 1
+					}
+
+					# FIXME - %NEWLINE_PATCH% is a temporary solution to temporarily fix an MCB bug where extra newlines are being added to the output.
+					dir frames {
+						<%%
+							// A record of node uuid to INodeTransform.
+							// Keeps track of the last time a bone was updated.
+							// Only used for step keyframe interpolation.
+							let hasFunction = false
+							const lastActiveFrame = {}
+							const modifiedNodes = Object.values(animation.modified_nodes).filter(n => n.type !== 'struct').sort(nodeSorter);
+							for (const [frameIndex, frame] of animation.frames.entries()) {
+								const to_merge = {cameras: {}, locators: {}}
+								let frameFunc = ``;
+								for (const node of modifiedNodes) {
+									const transform = frame.node_transforms[node.uuid]
+									// Skip if the node doesn't have a transform for this frame.
+									if (!transform) continue
+									switch (node.type) {
+										case 'bone':
+										case 'text_display':
+										case 'item_display':
+										case 'block_display': {
+											const lastFrame = lastActiveFrame[node.uuid]
+											const isStepInterpolation = !!(lastFrame?.interpolation === 'step')
+											lastActiveFrame[node.uuid] = transform
+
+											if (transform.interpolation === 'pre-post' || isStepInterpolation) {
+												frameFunc +=
+													`\n$data merge entity $(${node.storage_name})%NEWLINE_PATCH%{`
+														+ `transformation: ${matrixToNbtFloatArray(transform.matrix).toString()},`
+														+ `start_interpolation: ${isStepInterpolation ? -1 : 0},`
+														+ `interpolation_duration: ${isStepInterpolation ? 0 : interpolation_duration}`
+													+ `}`
+											} else {
+												frameFunc +=
+													`\n$data merge entity $(${node.storage_name})%NEWLINE_PATCH%{`
+														+ `transformation: ${matrixToNbtFloatArray(transform.matrix).toString()},`
+														+ `start_interpolation: 0,`
+														+ `interpolation_duration: ${interpolation_duration}`
+													+ `}`
+											}
+
+											;hasFunction = true
+											break
+										}
+										case 'locator': {
+											const lastFrame = lastActiveFrame[node.uuid]
+											lastActiveFrame[node.uuid] = transform
+											;if (!lastFrame || matrixToNbtFloatArray(transform.matrix).toString() !== matrixToNbtFloatArray(lastFrame.matrix).toString()) {
+												to_merge.locators[node.storage_name] = {
+													px: transform.pos[0],
+													py: transform.pos[1],
+													pz: transform.pos[2],
+													ry: transform.head_rot[1],
+													rx: transform.head_rot[0]
+												};
+											}
+
+											if (transform.function) {
+												if (node.config?.use_entity) {
+													frameFunc +=
+														`\n$execute on vehicle unless entity @s[tag=${TAGS.TRANSFORMS_ONLY()}] as $(${node.storage_name}) `
+														+ `positioned ^${roundTo(transform.pos[0], 10)} ^${roundTo(transform.pos[1], 10)} ^${roundTo(transform.pos[2], 10)} `
+														+ `rotated ~${roundTo(transform.head_rot[1], 10)} ~${roundTo(transform.head_rot[0], 10)} `
+														+ `${transform.function_execute_condition ? transform.function_execute_condition + ' ' : ''}run `
+														+ `block ${frameIndex}_locator_${node.storage_name}%NEWLINE_PATCH%{\n`
+															+ `tp @s ~ ~ ~ ~ ~\n`
+															+ `${transform.function}`
+														+ `\n}`
+												} else {
+													frameFunc +=
+														`\nexecute on vehicle unless entity @s[tag=${TAGS.TRANSFORMS_ONLY()}] `
+														+ `positioned ^${roundTo(transform.pos[0], 10)} ^${roundTo(transform.pos[1], 10)} ^${roundTo(transform.pos[2], 10)} `
+														+ `rotated ~${roundTo(transform.head_rot[1], 10)} ~${roundTo(transform.head_rot[0], 10)} `
+														+ `${transform.function_execute_condition ? transform.function_execute_condition + ' ' : ''}run `
+														+ `block ${frameIndex}_locator_${node.storage_name}%NEWLINE_PATCH%{\n`
+															+ `${transform.function}`
+														+ `\n}`
+												}
+											}
+											break
+										}
+										case 'camera': {
+											const lastFrame = lastActiveFrame[node.uuid]
+											lastActiveFrame[node.uuid] = transform
+											;if (!lastFrame || matrixToNbtFloatArray(transform.matrix).toString() !== matrixToNbtFloatArray(lastFrame.matrix).toString()) {
+												to_merge.cameras[node.storage_name] = {
+													px: transform.pos[0],
+													py: transform.pos[1],
+													pz: transform.pos[2],
+													ry: transform.head_rot[1],
+													rx: transform.head_rot[0]
+												};
+											}
+											;break
+										}
+									}
+								}
+
+								if (Object.keys(to_merge.locators).length > 0 || Object.keys(to_merge.cameras).length > 0) {
+									frameFunc += `\ndata modify entity @s data merge value ${JSON.stringify(to_merge)}`
+									if (!auto_update_rig_orientation) {
+										frameFunc += `\nfunction ./on_tick/transform_floating_entities`
+									}
+									hasFunction = true
+								}
+
+								if (frame.variants?.length) {
+									const variant = rig.variants[frame.variants[0]]
+									if (!variant) {
+										throw new Error(`Could not find Variant with uuid "${frame.variants[0]}" while generating frame "${frameIndex}" of animation "${animation.name}".`)
+									}
+									const execute_condition = frame.variants_execute_condition ? frame.variants_execute_condition + ' ' : ''
+									frameFunc += `\nexecute on vehicle unless entity @s[tag=${TAGS.TRANSFORMS_ONLY()}] ${execute_condition}run function *${export_namespace}/variants/${variant.name}/apply`
+									;hasFunction = true
+								}
+
+								// Root function keyframes.
+								if (frame.function) {
+									const execute_condition = frame.function_execute_condition ? frame.function_execute_condition + ' ' : ''
+									frameFunc += `\nexecute on vehicle unless entity @s[tag=${TAGS.TRANSFORMS_ONLY()}] at @s ${execute_condition}run block ${frameIndex}_root_function%NEWLINE_PATCH%{\n${frame.function}\n}`
+									;hasFunction = true
+								}
+								;if (frameFunc.length > 0) {
+									frameFunc = `function ${frameIndex}%NEWLINE_PATCH%{${frameFunc}\n}`
+									emit.mcb(frameFunc.replaceAll(/%NEWLINE_PATCH%\n?/g, ' '))
+								}
+							}
+						%%>
+					}
+				}
+			}
+		}
+	}
+	function pause_all {
+		# Pauses all animations
+		debug assert executed_as_root_entity <%TAGS.PROJECT_ROOT(export_namespace)%>
+
+		REPEAT (animations) as animation {
+			tag @s remove <%TAGS.ANIMATION_PLAYING(export_namespace, animation.storage_name)%>
+		}
+	}
+}
+
+function summon {
+	#Args: {args:{variant: string, animation: string, frame: int, start_animation: boolean}}
+	# frame is ignored unless animation is specified.
+
+	data modify storage <%temp_storage%> args set value {variant:'', animation:'', frame: 0}
 	$execute store success score #success <%OBJECTIVES.I()%> run data modify storage <%temp_storage%> args set value $(args)
 
 	summon minecraft:item_display ~ ~ ~ { \
@@ -247,13 +624,61 @@ function summon {
 		execute if score #success <%OBJECTIVES.I()%> matches 0 run return fail
 
 		function *<%export_namespace%>/set_default_pose
+
+		# Animation Argument
+		# If the animation argument is provided, attempt to apply the animation.
+		execute if data storage <%temp_storage%> args.animation run block animation_arg/process { with storage <%temp_storage%> args
+			scoreboard players set #success <%OBJECTIVES.I()%> 0
+			# If the animation argument is *explicitly* set to an empty string, return an error.
+			execute if data storage <%temp_storage%> {args:{animation:''}} run return run block if_empty {
+				tellraw @a <%TELLRAW.ARGUMENT_CANNOT_BE_EMPTY('animation')%>
+				function *<%export_namespace%>/remove/this/without_on_remove_function
+			}
+			# Automatically set the frame argument to 0 if the frame argument is not provided.
+			# Takes advantage of `store result score` setting the score to 0 if the command fails.
+			execute \
+				store result storage <%temp_storage%> args.frame int 1 \
+				store result score #frame <%OBJECTIVES.I()%> \
+			run \
+				data get storage <%temp_storage%> args.frame
+			# If the frame argument is negative, return an error.
+			execute if score #frame <%OBJECTIVES.I()%> matches ..-1 run return run block no_negative {
+				# Tell the user that the frame argument cannot be negative.
+				tellraw @a <%TELLRAW.FRAME_CANNOT_BE_NEGATIVE()%>
+				function *<%export_namespace%>/remove/this/without_on_remove_function
+			}
+			# Attempt to apply the animation frame.
+			execute store success score #success <%OBJECTIVES.I()%> run block try_set_frame { with storage <%temp_storage%> args
+				# Make sure we're only applying transforms when setting the summon pose.
+				tag @s add <%TAGS.TRANSFORMS_ONLY()%>
+				$execute store success score #success <%OBJECTIVES.I()%> run function *<%export_namespace%>/animations/$(animation)/zzz/set_frame with storage <%temp_storage%> args
+				tag @s remove <%TAGS.TRANSFORMS_ONLY()%>
+				execute if score #success <%OBJECTIVES.I()%> matches 1 run return 1
+				# If the set_frame function fails, the animation doesn't exist, so we return an error.
+				return fail
+			}
+			# If the set_frame function failed, return an error.
+			execute unless score #success <%OBJECTIVES.I()%> matches 1 run return run block invalid_animation {
+				# Tell the user that the provided animation doesn't exist, remove the rig, and list all available animations for this rig.
+				tellraw @a <%TELLRAW.INVALID_ANIMATION(animations)%>
+				function *<%export_namespace%>/remove/this/without_on_remove_function
+			}
+
+			# If the animation is successfully applied, and the start_animation argument is set to true, start the animation.
+			execute if data storage <%temp_storage%> {args:{start_animation: true}} run block start_animation { with storage <%temp_storage%> args
+				$function *<%export_namespace%>/animations/$(animation)/resume
+			}
+			scoreboard players set #success <%OBJECTIVES.I()%> 1
+		}
+		execute if score #success <%OBJECTIVES.I()%> matches 0 run return fail
+
 		IF (has_locators || has_cameras) {
 			execute \
 				on passengers \
 				if entity @s[tag=<%TAGS.GLOBAL_DATA()%>] \
 			run function ./on_tick/transform_floating_entities
 		}
-		execute on passengers run rotate @s ~ ~
+		execute on passengers run tp @s ~ ~ ~ ~ ~
 
 		# Apply teleport duration
 		data modify entity @s teleport_duration set value <%teleportation_duration%>
@@ -719,9 +1144,9 @@ IF (Object.keys(rig.variants).length > 1) {
 								IF (node.type === 'bone' && variant.models[node.uuid] !== undefined) {
 									# Special case for `animated_java:empty` model.
 									IF (variant.models[node.uuid].model === null) {
-										data modify entity @s item.components."minecraft:custom_model_data".strings[0] set value "AJ_INTERNAL_EMPTY"
+										data modify entity @s item.components."minecraft:item_model" set value "animated_java:empty"
 									} ELSE {
-										data modify entity @s item.components."minecraft:custom_model_data".strings[0] set value "<%variant.name%>"
+										data modify entity @s item.components."minecraft:item_model" set value "<%variant.models[node.uuid].item_model%>"
 									}
 								}
 								IF (node.configs.variants[variant.uuid]) {
@@ -802,6 +1227,26 @@ IF (has_locators || has_cameras) {
 				}
 			}
 		}
+	}
+}
+
+function apply_default_pose {
+	# Changes the pose of the rig to the the default pose with interpolation
+	debug assert executed_as_root_entity <%TAGS.PROJECT_ROOT(export_namespace)%>
+
+	IF (has_locators || has_cameras) {
+		function ./zzz/reset_floating_entities
+	}
+
+	REPEAT (Object.values(rig.nodes).filter(node => BONE_TYPES.includes(node.type))) as node {
+		execute \
+			on passengers \
+			if entity @s[tag=<%TAGS.PROJECT_NODE_NAMED(export_namespace, node.storage_name)%>] \
+		run \
+			data merge entity @s { \
+				transformation: <%matrixToNbtFloatArray(node.default_transform.matrix).toString()%>, \
+				start_interpolation: 0 \
+			}
 	}
 }
 

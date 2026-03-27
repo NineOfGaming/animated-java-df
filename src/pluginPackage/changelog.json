@@ -603,5 +603,71 @@
 				]
 			}
 		]
+	},
+	"1.9.0-beta.1": {
+		"title": "v1.9.0-beta.1",
+		"author": "Titus Evans (SnaveSutit)",
+		"date": "2026-03-17",
+		"categories": [
+			{
+				"title": "Changes",
+				"list": [
+					"[BREAKING] Nodes are no longer passengers of the root entity in versions 1.21.4 and above. Any code that relies on `on passengers` to target rig nodes will need to be updated to use `as_node` instead.`",
+					"[BREAKING] `as_locator` & `as_all_locators` no longer execute `at` the targeted locators.",
+					"Added `as_at_locator` & `as_at_all_locators` functions to replace previous `as_locator` and `as_all_locators` positional functionality.",
+					"Made camera and rig rotation much more precise for 1.21.4 and above.",
+					"Added support for the removal of item model rotation restrictions in 1.21.11.",
+					"Added `as_node` function."
+				]
+			},
+			{
+				"title": "Fixes",
+				"list": [
+					"Fixed [#475](https://github.com/Animated-Java/animated-java/issues/475)",
+					"Fixed [#474](https://github.com/Animated-Java/animated-java/issues/474)",
+					"Fixed [#472](https://github.com/Animated-Java/animated-java/issues/472)",
+					"Fixed [#471](https://github.com/Animated-Java/animated-java/issues/471)",
+					"Fixed [#469](https://github.com/Animated-Java/animated-java/issues/469)",
+					"Fixed [#468](https://github.com/Animated-Java/animated-java/issues/468)",
+					"Fixed `move` function not transforming floating entities."
+				]
+			}
+		]
+	},
+	"1.9.0-beta.2": {
+		"title": "v1.9.0-beta.2",
+		"author": "Titus Evans (SnaveSutit)",
+		"date": "2026-03-17",
+		"categories": [
+			{
+				"title": "Changes",
+				"list": ["Improved error messages for `as_all_locators` and similar functions."]
+			},
+			{
+				"title": "Fixes",
+				"list": [
+					"Fixed locators failing to tick, and display entities being left behind when moving the root (either by `tp` or `move` function)."
+				]
+			}
+		]
+	},
+	"1.9.0-beta.3": {
+		"title": "v1.9.0-beta.3",
+		"author": "Titus Evans (SnaveSutit)",
+		"date": "2026-03-27",
+		"categories": [
+			{
+				"title": "Changes",
+				"list": [
+					"Updated Russian translations to improve consistency and punctuation. - Thanks Koishem!",
+					"Re-enabled Plugin mode - WARNING: This is experimental, and is using a new plugin JSON schema that will likely change in the future. - Thanks Meekiavelique!",
+					"Added Bisect hosting partnership banner."
+				]
+			},
+			{
+				"title": "Fixes",
+				"list": []
+			}
+		]
 	}
 }

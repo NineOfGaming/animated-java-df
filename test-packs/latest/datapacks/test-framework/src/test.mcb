@@ -41,4 +41,70 @@ dir armor_stand {
 			}
 		}
 	}
+
+	function test_dismounted {
+		function animated_java:global/remove/everything
+		execute positioned 0 1 0 rotated 0 0 run function animated_java:armor_stand/summon {args:{animation:'test',start_animation:true}}
+		# execute as @e[tag=aj.global.node] run ride @s dismount
+	}
+
+	function test_precise_camera_rotation {
+		function animated_java:global/remove/everything
+		execute positioned 0 1 0 rotated 0 0 run function animated_java:armor_stand/summon {args:{animation:'camera_test',start_animation:true}}
+		gamemode spectator @s
+		execute as @n[tag=aj.global.root] run function animated_java:armor_stand/as_camera {name:'camera',command:'spectate @s @p'}
+	}
+
+	dir test {
+		function at_all_locators {
+			function animated_java:global/remove/everything
+			execute positioned 0 1 0 rotated 0 0 run function animated_java:armor_stand/summon {args:{}}
+
+			scoreboard players set #test aj.i 0
+			execute as @e[tag=aj.armor_stand.root] run function animated_java:armor_stand/at_all_locators {command:'scoreboard players add #test aj.i 1'}
+			execute if score #test aj.i matches 0 run return run tellraw @a {text: 'TEST FAILED: No locators executed the command', color: 'red'}
+
+			tellraw @a {text: '\nThe following message should be an error warning about an empty command string', color: 'green'}
+			execute as @e[tag=aj.armor_stand.root] run function animated_java:armor_stand/at_all_locators {command:''}
+			tellraw @a {text: 'end of message', color: 'green'}
+
+			tellraw @a {text: '\nThe following message(s) should be error(s) warning about an invalid command', color: 'green'}
+			execute as @e[tag=aj.armor_stand.root] run function animated_java:armor_stand/at_all_locators {command:'someone did an oopsie'}
+			tellraw @a {text: 'end of message(s)', color: 'green'}
+		}
+
+		function as_all_locators {
+			function animated_java:global/remove/everything
+			execute positioned 0 1 0 rotated 0 0 run function animated_java:armor_stand/summon {args:{}}
+
+			scoreboard players set #test aj.i 0
+			execute as @e[tag=aj.armor_stand.root] run function animated_java:armor_stand/as_all_locators {command:'scoreboard players add #test aj.i 1'}
+			execute if score #test aj.i matches 0 run return run tellraw @a {text: 'TEST FAILED: No locators executed the command', color: 'red'}
+
+			tellraw @a {text: '\nThe following message should be an error warning about an empty command string', color: 'green'}
+			execute as @e[tag=aj.armor_stand.root] run function animated_java:armor_stand/as_all_locators {command:''}
+			tellraw @a {text: 'end of message', color: 'green'}
+
+			tellraw @a {text: '\nThe following message(s) should be error(s) warning about an invalid command', color: 'green'}
+			execute as @e[tag=aj.armor_stand.root] run function animated_java:armor_stand/as_all_locators {command:'someone did an oopsie'}
+			tellraw @a {text: 'end of message(s)', color: 'green'}
+		}
+
+		function as_at_all_locators {
+			function animated_java:global/remove/everything
+			execute positioned 0 1 0 rotated 0 0 run function animated_java:armor_stand/summon {args:{}}
+
+			scoreboard players set #test aj.i 0
+			execute as @e[tag=aj.armor_stand.root] run function animated_java:armor_stand/as_at_all_locators {command:'scoreboard players add #test aj.i 1'}
+			execute if score #test aj.i matches 0 run return run tellraw @a {text: 'TEST FAILED: No locators executed the command', color: 'red'}
+
+			tellraw @a {text: '\nThe following message should be an error warning about an empty command string', color: 'green'}
+			execute as @e[tag=aj.armor_stand.root] run function animated_java:armor_stand/as_at_all_locators {command:''}
+			tellraw @a {text: 'end of message', color: 'green'}
+
+			tellraw @a {text: '\nThe following message(s) should be error(s) warning about an invalid command', color: 'green'}
+			execute as @e[tag=aj.armor_stand.root] run function animated_java:armor_stand/as_at_all_locators {command:'someone did an oopsie'}
+			tellraw @a {text: 'end of message(s)', color: 'green'}
+		}
+	}
 }

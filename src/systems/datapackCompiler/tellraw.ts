@@ -259,12 +259,12 @@ namespace TELLRAW {
 			" is enabled in the locator's config.",
 		])
 
-	export const LOCATOR_COMMAND_FAILED_TO_EXECUTE = () =>
+	export const LOCATOR_COMMAND_FAILED_TO_EXECUTE = (name?: TextElement) =>
 		TELLRAW_ERROR('Failed to Execute Command as Locator', [
 			'Failed to execute command ',
 			{ nbt: 'args.command', storage: 'animated_java:temp', color: 'yellow' },
 			' as Locator ',
-			{ nbt: 'args.name', storage: 'animated_java:temp', color: 'aqua' },
+			name ?? { nbt: 'args.name', storage: 'animated_java:temp', color: 'aqua' },
 			'.',
 			'\n Please ensure the command is valid.',
 		])
@@ -277,12 +277,30 @@ namespace TELLRAW {
 			'\n Please ensure that its name is spelled correctly.',
 		])
 
-	export const CAMERA_COMMAND_FAILED_TO_EXECUTE = () =>
+	export const CAMERA_COMMAND_FAILED_TO_EXECUTE = (name?: TextElement) =>
 		TELLRAW_ERROR('Failed to Execute Command as Camera', [
 			'Failed to execute command ',
 			{ nbt: 'args.command', storage: 'animated_java:temp', color: 'yellow' },
 			' as Camera ',
+			name ?? { nbt: 'args.name', storage: 'animated_java:temp', color: 'aqua' },
+			'.',
+			'\n Please ensure the command is valid.',
+		])
+
+	export const NODE_ENTITY_NOT_FOUND = () =>
+		TELLRAW_ERROR('Node Not Found', [
+			'Node ',
 			{ nbt: 'args.name', storage: 'animated_java:temp', color: 'aqua' },
+			' does not exist!',
+			'\n Please ensure that its name is spelled correctly.',
+		])
+
+	export const NODE_COMMAND_FAILED_TO_EXECUTE = (name?: TextElement) =>
+		TELLRAW_ERROR('Failed to Execute Command as Node', [
+			'Failed to execute command ',
+			{ nbt: 'args.command', storage: 'animated_java:temp', color: 'yellow' },
+			' as Node ',
+			name ?? { nbt: 'args.name', storage: 'animated_java:temp', color: 'aqua' },
 			'.',
 			'\n Please ensure the command is valid.',
 		])

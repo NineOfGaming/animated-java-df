@@ -20,7 +20,7 @@ import {
 	restoreSceneAngle,
 	updatePreview,
 } from './animationRenderer'
-import { IntentionalExportError } from './exporter'
+import { IntentionalExportError } from './errors'
 import { JsonText } from './jsonText'
 
 export interface IRenderedFace {

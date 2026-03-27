@@ -1,9 +1,9 @@
 {
 	"meta": {
 		"format": "animated-java:format/blueprint",
-		"format_version": "1.8.0-beta.4",
+		"format_version": "1.8.1",
 		"uuid": "167b27cd-b559-3f13-a97c-0841fe21f1d1",
-		"save_location": "D:\\github-repos\\animated-java\\old-animated-java\\test-packs\\latest\\blueprints\\armor_stand_latest.ajblueprint",
+		"save_location": "/var/mnt/ssd2/repos/animated-java/animated-java/test-packs/latest/blueprints/armor_stand_latest.ajblueprint",
 		"last_used_export_namespace": "armor_stand"
 	},
 	"resolution": {
@@ -830,7 +830,7 @@
 			"config": {
 				"use_entity": true,
 				"entity_type": "minecraft:item_display",
-				"sync_passenger_rotation": false,
+				"sync_passenger_rotation": true,
 				"on_summon_function": "say Summon Left Hand!",
 				"on_remove_function": "say Remove Left Hand!",
 				"on_tick_function": ""
@@ -906,14 +906,44 @@
 		},
 		{
 			"name": "camera",
-			"position": [0, 27, 0],
-			"rotation": [0, 0, 0],
-			"fov": 70,
-			"aspect_ratio": [16, 9],
-			"linked_preview": "",
-			"camera_linked": false,
-			"visibility": true,
-			"type": "camera",
+			"box_uv": false,
+			"rescale": false,
+			"locked": false,
+			"light_emission": 0,
+			"render_order": "default",
+			"allow_mirror_modeling": true,
+			"from": [0, 0, 0],
+			"to": [1, 1, 1],
+			"autouv": 0,
+			"color": 3,
+			"origin": [0, 0, 0],
+			"faces": {
+				"north": {
+					"uv": [0, 0, 1, 1],
+					"texture": 0
+				},
+				"east": {
+					"uv": [0, 0, 1, 1],
+					"texture": 0
+				},
+				"south": {
+					"uv": [0, 0, 1, 1],
+					"texture": 0
+				},
+				"west": {
+					"uv": [0, 0, 1, 1],
+					"texture": 0
+				},
+				"up": {
+					"uv": [0, 0, 1, 1],
+					"texture": 0
+				},
+				"down": {
+					"uv": [0, 0, 1, 1],
+					"texture": 0
+				}
+			},
+			"type": "cube",
 			"uuid": "3ffeee76-901e-f8a2-c29a-82f90e16fd1e"
 		},
 		{
@@ -1029,17 +1059,17 @@
 							"onSummonFunction": "",
 							"configs": {
 								"default": {
+									"on_apply_function": "",
 									"billboard": "fixed",
+									"override_brightness": false,
 									"brightness_override": 0,
 									"enchanted": false,
-									"glow_color": "#ffffff",
 									"glowing": false,
-									"inherit_settings": true,
+									"override_glow_color": false,
+									"glow_color": "#ffffff",
 									"invisible": false,
-									"nbt": "{}",
 									"shadow_radius": 0,
-									"shadow_strength": 1,
-									"use_nbt": false
+									"shadow_strength": 1
 								},
 								"variants": {}
 							},
@@ -2089,7 +2119,7 @@
 			"override": false,
 			"length": 1,
 			"snapping": 20,
-			"selected": true,
+			"selected": false,
 			"saved": true,
 			"path": "",
 			"anim_time_update": "",
@@ -2298,6 +2328,23 @@
 					]
 				}
 			}
+		},
+		{
+			"uuid": "8b5ebbc6-1189-bb9a-00f6-6ef68e212fc1",
+			"name": "camera_test",
+			"loop": "loop",
+			"override": false,
+			"length": 90,
+			"snapping": 20,
+			"selected": true,
+			"saved": true,
+			"path": "",
+			"anim_time_update": "",
+			"blend_weight": "",
+			"start_delay": "",
+			"loop_delay": "0",
+			"excluded_nodes": [],
+			"animators": {}
 		}
 	],
 	"animation_variable_placeholders": "v.walk_speed = 360 * 1;\nv.run_speed = 360 * 1.5;\nv.stickbug_speed = 360 * 1.25;\n"
