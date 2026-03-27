@@ -369,271 +369,284 @@
 	}
 </script>
 
-<SectionHeader label={translate('dialog.blueprint_settings.project_settings.title')} />
+<div class="container">
+	<SectionHeader label={translate('dialog.blueprint_settings.project_settings.title')} />
 
-<LineInput
-	label={translate('dialog.blueprint_settings.project_name.title')}
-	tooltip={translate('dialog.blueprint_settings.project_name.description')}
-	bind:value={blueprintName}
-	defaultValue={'My Blueprint'}
-/>
+	<LineInput
+		label={translate('dialog.blueprint_settings.project_name.title')}
+		tooltip={translate('dialog.blueprint_settings.project_name.description')}
+		bind:value={blueprintName}
+		defaultValue={'My Blueprint'}
+	/>
 
-<Vector2D
-	label={translate('dialog.blueprint_settings.texture_size.title')}
-	tooltip={translate('dialog.blueprint_settings.texture_size.description')}
-	bind:valueX={textureSizeX}
-	defaultValueX={16}
-	minX={2}
-	maxX={4096}
-	bind:valueY={textureSizeY}
-	defaultValueY={16}
-	minY={2}
-	maxY={4096}
-	valueChecker={textureSizeChecker}
-/>
-
-<Checkbox
-	label={translate('dialog.blueprint_settings.show_render_box.title')}
-	tooltip={translate('dialog.blueprint_settings.show_render_box.description')}
-	bind:checked={showRenderBox}
-	defaultValue={defaultValues.show_render_box}
-/>
-
-<Checkbox
-	label={translate('dialog.blueprint_settings.auto_render_box.title')}
-	tooltip={translate('dialog.blueprint_settings.auto_render_box.description')}
-	bind:checked={autoRenderBox}
-	defaultValue={defaultValues.auto_render_box}
-/>
-
-{#if !$autoRenderBox}
 	<Vector2D
-		label={translate('dialog.blueprint_settings.render_box.title')}
-		tooltip={translate('dialog.blueprint_settings.render_box.description')}
-		bind:valueX={renderBoxX}
-		defaultValueX={defaultValues.render_box[0]}
+		label={translate('dialog.blueprint_settings.texture_size.title')}
+		tooltip={translate('dialog.blueprint_settings.texture_size.description')}
+		bind:valueX={textureSizeX}
+		defaultValueX={16}
 		minX={2}
 		maxX={4096}
-		bind:valueY={renderBoxY}
-		defaultValueY={defaultValues.render_box[1]}
+		bind:valueY={textureSizeY}
+		defaultValueY={16}
 		minY={2}
 		maxY={4096}
-	/>
-{/if}
-
-<SectionHeader label={translate('dialog.blueprint_settings.export_settings.title')} />
-
-<LineInput
-	label={translate('dialog.blueprint_settings.export_namespace.title')}
-	tooltip={translate('dialog.blueprint_settings.export_namespace.description')}
-	bind:value={exportNamespace}
-	defaultValue={defaultValues.export_namespace}
-	valueChecker={exportNamespaceChecker}
-/>
-
-<Checkbox
-	label={translate('dialog.blueprint_settings.enable_plugin_mode.title')}
-	tooltip={translate('dialog.blueprint_settings.enable_plugin_mode.description')}
-	bind:checked={enablePluginMode}
-	defaultValue={defaultValues.enable_plugin_mode}
-/>
-
-{#if $enablePluginMode}
-	<LineInput
-		label={translate('dialog.blueprint_settings.display_item.title')}
-		tooltip={translate('dialog.blueprint_settings.display_item.description')}
-		bind:value={displayItem}
-		defaultValue={defaultValues.display_item}
-		valueChecker={displayItemChecker}
+		valueChecker={textureSizeChecker}
 	/>
 
 	<Checkbox
-		label={translate('dialog.blueprint_settings.baked_animations.title')}
-		tooltip={translate('dialog.blueprint_settings.baked_animations.description')}
-		bind:checked={bakedAnimations}
-		defaultValue={defaultValues.baked_animations}
+		label={translate('dialog.blueprint_settings.show_render_box.title')}
+		tooltip={translate('dialog.blueprint_settings.show_render_box.description')}
+		bind:checked={showRenderBox}
+		defaultValue={defaultValues.show_render_box}
 	/>
 
-	<FileSelect
-		label={translate('dialog.blueprint_settings.json_file.title')}
-		tooltip={translate('dialog.blueprint_settings.json_file.description')}
-		bind:value={jsonFile}
-		defaultValue={defaultValues.json_file}
-		valueChecker={jsonFileChecker}
-	/>
-{:else}
-	<Select
-		label={translate('dialog.blueprint_settings.target_minecraft_version.title')}
-		tooltip={translate('dialog.blueprint_settings.target_minecraft_version.description')}
-		options={TARGETABLE_VERSIONS}
-		defaultOption={Object.keys(TARGETABLE_VERSIONS).at(-1) ?? '1.20.4'}
-		bind:value={targetMinecraftVersion}
+	<Checkbox
+		label={translate('dialog.blueprint_settings.auto_render_box.title')}
+		tooltip={translate('dialog.blueprint_settings.auto_render_box.description')}
+		bind:checked={autoRenderBox}
+		defaultValue={defaultValues.auto_render_box}
 	/>
 
-	<SectionHeader label={translate('dialog.blueprint_settings.resource_pack_settings.title')} />
+	{#if !$autoRenderBox}
+		<Vector2D
+			label={translate('dialog.blueprint_settings.render_box.title')}
+			tooltip={translate('dialog.blueprint_settings.render_box.description')}
+			bind:valueX={renderBoxX}
+			defaultValueX={defaultValues.render_box[0]}
+			minX={2}
+			maxX={4096}
+			bind:valueY={renderBoxY}
+			defaultValueY={defaultValues.render_box[1]}
+			minY={2}
+			maxY={4096}
+		/>
+	{/if}
 
-	<Select
-		label={translate('dialog.blueprint_settings.resource_pack_export_mode.title')}
-		options={{
-			folder: translate('dialog.blueprint_settings.resource_pack_export_mode.options.folder'),
-			none: translate('dialog.blueprint_settings.resource_pack_export_mode.options.none'),
-		}}
-		defaultOption={'folder'}
-		bind:value={resourcePackExportMode}
+	<SectionHeader label={translate('dialog.blueprint_settings.export_settings.title')} />
+
+	<LineInput
+		label={translate('dialog.blueprint_settings.export_namespace.title')}
+		tooltip={translate('dialog.blueprint_settings.export_namespace.description')}
+		bind:value={exportNamespace}
+		defaultValue={defaultValues.export_namespace}
+		valueChecker={exportNamespaceChecker}
 	/>
 
-	{#if $resourcePackExportMode !== 'none'}
-		{#if $DISPLAY_ITEM_REQUIRED}
-			<LineInput
-				label={translate('dialog.blueprint_settings.display_item.title')}
-				tooltip={translate('dialog.blueprint_settings.display_item.description')}
-				bind:value={displayItem}
-				defaultValue={defaultValues.display_item}
-				valueChecker={displayItemChecker}
-			/>
-		{/if}
+	<Checkbox
+		label={translate('dialog.blueprint_settings.enable_plugin_mode.title')}
+		tooltip={translate('dialog.blueprint_settings.enable_plugin_mode.description')}
+		bind:checked={enablePluginMode}
+		defaultValue={defaultValues.enable_plugin_mode}
+	/>
 
-		{#if $resourcePackExportMode === 'folder'}
-			<FolderSelect
-				label={translate('dialog.blueprint_settings.resource_pack.title')}
-				tooltip={translate('dialog.blueprint_settings.resource_pack.description')}
-				bind:value={resourcePack}
-				defaultValue={defaultValues.resource_pack}
-				valueChecker={resourcePackFolderChecker}
-			/>
-		{:else if $resourcePackExportMode === 'zip'}
-			<FileSelect
-				label={translate('dialog.blueprint_settings.resource_pack_zip.title')}
-				tooltip={translate('dialog.blueprint_settings.resource_pack_zip.description')}
-				bind:value={resourcePack}
-				defaultValue={defaultValues.resource_pack}
-				valueChecker={zipChecker}
-			/>
-		{/if}
-
-		<Checkbox
-			label={translate(
-				'dialog.blueprint_settings.enable_advanced_resource_pack_settings.title'
-			)}
-			bind:checked={enableAdvancedResourcePackSettings}
-			defaultValue={defaultValues.enable_advanced_resource_pack_settings}
+	{#if $enablePluginMode}
+		<LineInput
+			label={translate('dialog.blueprint_settings.display_item.title')}
+			tooltip={translate('dialog.blueprint_settings.display_item.description')}
+			bind:value={displayItem}
+			defaultValue={defaultValues.display_item}
+			valueChecker={displayItemChecker}
 		/>
 
-		{#if $enableAdvancedResourcePackSettings}
-			<p class="warning">
-				{translate('dialog.blueprint_settings.advanced_settings_warning')}
-			</p>
+		<Checkbox
+			label={translate('dialog.blueprint_settings.baked_animations.title')}
+			tooltip={translate('dialog.blueprint_settings.baked_animations.description')}
+			bind:checked={bakedAnimations}
+			defaultValue={defaultValues.baked_animations}
+		/>
+
+		<FileSelect
+			label={translate('dialog.blueprint_settings.json_file.title')}
+			tooltip={translate('dialog.blueprint_settings.json_file.description')}
+			bind:value={jsonFile}
+			defaultValue={defaultValues.json_file}
+			valueChecker={jsonFileChecker}
+		/>
+	{:else}
+		<Select
+			label={translate('dialog.blueprint_settings.target_minecraft_version.title')}
+			tooltip={translate('dialog.blueprint_settings.target_minecraft_version.description')}
+			options={TARGETABLE_VERSIONS}
+			defaultOption={Object.keys(TARGETABLE_VERSIONS).at(-1) ?? '1.20.4'}
+			bind:value={targetMinecraftVersion}
+		/>
+
+		<SectionHeader
+			label={translate('dialog.blueprint_settings.resource_pack_settings.title')}
+		/>
+
+		<Select
+			label={translate('dialog.blueprint_settings.resource_pack_export_mode.title')}
+			options={{
+				folder: translate(
+					'dialog.blueprint_settings.resource_pack_export_mode.options.folder'
+				),
+				none: translate('dialog.blueprint_settings.resource_pack_export_mode.options.none'),
+			}}
+			defaultOption={'folder'}
+			bind:value={resourcePackExportMode}
+		/>
+
+		{#if $resourcePackExportMode !== 'none'}
+			{#if $DISPLAY_ITEM_REQUIRED}
+				<LineInput
+					label={translate('dialog.blueprint_settings.display_item.title')}
+					tooltip={translate('dialog.blueprint_settings.display_item.description')}
+					bind:value={displayItem}
+					defaultValue={defaultValues.display_item}
+					valueChecker={displayItemChecker}
+				/>
+			{/if}
+
+			{#if $resourcePackExportMode === 'folder'}
+				<FolderSelect
+					label={translate('dialog.blueprint_settings.resource_pack.title')}
+					tooltip={translate('dialog.blueprint_settings.resource_pack.description')}
+					bind:value={resourcePack}
+					defaultValue={defaultValues.resource_pack}
+					valueChecker={resourcePackFolderChecker}
+				/>
+			{:else if $resourcePackExportMode === 'zip'}
+				<FileSelect
+					label={translate('dialog.blueprint_settings.resource_pack_zip.title')}
+					tooltip={translate('dialog.blueprint_settings.resource_pack_zip.description')}
+					bind:value={resourcePack}
+					defaultValue={defaultValues.resource_pack}
+					valueChecker={zipChecker}
+				/>
+			{/if}
+
+			<Checkbox
+				label={translate(
+					'dialog.blueprint_settings.enable_advanced_resource_pack_settings.title'
+				)}
+				bind:checked={enableAdvancedResourcePackSettings}
+				defaultValue={defaultValues.enable_advanced_resource_pack_settings}
+			/>
+
+			{#if $enableAdvancedResourcePackSettings}
+				<p class="warning">
+					{translate('dialog.blueprint_settings.advanced_settings_warning')}
+				</p>
+
+				<NumberSlider
+					label={translate('dialog.blueprint_settings.custom_model_data_offset.title')}
+					tooltip={translate(
+						'dialog.blueprint_settings.custom_model_data_offset.description'
+					)}
+					bind:value={customModelDataOffset}
+					defaultValue={defaultValues.custom_model_data_offset}
+					min={0}
+					max={2147483647}
+					valueStep={1}
+				/>
+			{/if}
+		{/if}
+
+		<SectionHeader label={translate('dialog.blueprint_settings.data_pack_settings.title')} />
+
+		<Select
+			label={translate('dialog.blueprint_settings.data_pack_export_mode.title')}
+			options={{
+				folder: translate('dialog.blueprint_settings.data_pack_export_mode.options.folder'),
+				none: translate('dialog.blueprint_settings.data_pack_export_mode.options.none'),
+			}}
+			defaultOption={'folder'}
+			bind:value={dataPackExportMode}
+		/>
+
+		{#if $dataPackExportMode !== 'none'}
+			{#if $dataPackExportMode === 'folder'}
+				<FolderSelect
+					label={translate('dialog.blueprint_settings.data_pack.title')}
+					tooltip={translate('dialog.blueprint_settings.data_pack.description')}
+					bind:value={dataPack}
+					defaultValue={defaultValues.data_pack}
+					valueChecker={dataPackFolderChecker}
+				/>
+			{:else if $dataPackExportMode === 'zip'}
+				<FileSelect
+					label={translate('dialog.blueprint_settings.data_pack_zip.title')}
+					tooltip={translate('dialog.blueprint_settings.data_pack_zip.description')}
+					bind:value={dataPack}
+					defaultValue={defaultValues.data_pack}
+					valueChecker={zipChecker}
+				/>
+			{/if}
+
+			<CodeInput
+				label={translate('dialog.blueprint_settings.on_summon_function.title')}
+				tooltip={translate('dialog.blueprint_settings.on_summon_function.description')}
+				bind:value={onSummonFunction}
+				defaultValue={defaultValues.on_summon_function}
+			/>
+
+			<CodeInput
+				label={translate('dialog.blueprint_settings.on_remove_function.title')}
+				tooltip={translate('dialog.blueprint_settings.on_remove_function.description')}
+				bind:value={onRemoveFunction}
+				defaultValue={defaultValues.on_remove_function}
+			/>
+
+			<CodeInput
+				label={translate('dialog.blueprint_settings.on_pre_tick_function.title')}
+				tooltip={translate('dialog.blueprint_settings.on_pre_tick_function.description')}
+				bind:value={onPreTickFunction}
+				defaultValue={defaultValues.on_pre_tick_function}
+			/>
+
+			<CodeInput
+				label={translate('dialog.blueprint_settings.on_post_tick_function.title')}
+				tooltip={translate('dialog.blueprint_settings.on_post_tick_function.description')}
+				bind:value={onPostTickFunction}
+				defaultValue={defaultValues.on_post_tick_function}
+			/>
 
 			<NumberSlider
-				label={translate('dialog.blueprint_settings.custom_model_data_offset.title')}
-				tooltip={translate(
-					'dialog.blueprint_settings.custom_model_data_offset.description'
-				)}
-				bind:value={customModelDataOffset}
-				defaultValue={defaultValues.custom_model_data_offset}
+				label={translate('dialog.blueprint_settings.interpolation_duration.title')}
+				tooltip={translate('dialog.blueprint_settings.interpolation_duration.description')}
+				bind:value={interpolationDuration}
+				defaultValue={defaultValues.interpolation_duration}
 				min={0}
 				max={2147483647}
 				valueStep={1}
 			/>
-		{/if}
-	{/if}
 
-	<SectionHeader label={translate('dialog.blueprint_settings.data_pack_settings.title')} />
-
-	<Select
-		label={translate('dialog.blueprint_settings.data_pack_export_mode.title')}
-		options={{
-			folder: translate('dialog.blueprint_settings.data_pack_export_mode.options.folder'),
-			none: translate('dialog.blueprint_settings.data_pack_export_mode.options.none'),
-		}}
-		defaultOption={'folder'}
-		bind:value={dataPackExportMode}
-	/>
-
-	{#if $dataPackExportMode !== 'none'}
-		{#if $dataPackExportMode === 'folder'}
-			<FolderSelect
-				label={translate('dialog.blueprint_settings.data_pack.title')}
-				tooltip={translate('dialog.blueprint_settings.data_pack.description')}
-				bind:value={dataPack}
-				defaultValue={defaultValues.data_pack}
-				valueChecker={dataPackFolderChecker}
+			<NumberSlider
+				label={translate('dialog.blueprint_settings.teleportation_duration.title')}
+				tooltip={translate('dialog.blueprint_settings.teleportation_duration.description')}
+				bind:value={teleportationDuration}
+				defaultValue={defaultValues.teleportation_duration}
+				min={0}
+				max={2147483647}
+				valueStep={1}
 			/>
-		{:else if $dataPackExportMode === 'zip'}
-			<FileSelect
-				label={translate('dialog.blueprint_settings.data_pack_zip.title')}
-				tooltip={translate('dialog.blueprint_settings.data_pack_zip.description')}
-				bind:value={dataPack}
-				defaultValue={defaultValues.data_pack}
-				valueChecker={zipChecker}
+
+			<Checkbox
+				label={translate('dialog.blueprint_settings.auto_update_rig_orientation.title')}
+				tooltip={translate(
+					'dialog.blueprint_settings.auto_update_rig_orientation.description'
+				)}
+				bind:checked={autoUpdateRigOrientation}
+				defaultValue={defaultValues.auto_update_rig_orientation}
+			/>
+
+			<Checkbox
+				label={translate('dialog.blueprint_settings.use_storage_for_animation.title')}
+				tooltip={translate(
+					'dialog.blueprint_settings.use_storage_for_animation.description'
+				)}
+				bind:checked={useStorageForAnimation}
+				defaultValue={defaultValues.use_storage_for_animation}
 			/>
 		{/if}
-
-		<CodeInput
-			label={translate('dialog.blueprint_settings.on_summon_function.title')}
-			tooltip={translate('dialog.blueprint_settings.on_summon_function.description')}
-			bind:value={onSummonFunction}
-			defaultValue={defaultValues.on_summon_function}
-		/>
-
-		<CodeInput
-			label={translate('dialog.blueprint_settings.on_remove_function.title')}
-			tooltip={translate('dialog.blueprint_settings.on_remove_function.description')}
-			bind:value={onRemoveFunction}
-			defaultValue={defaultValues.on_remove_function}
-		/>
-
-		<CodeInput
-			label={translate('dialog.blueprint_settings.on_pre_tick_function.title')}
-			tooltip={translate('dialog.blueprint_settings.on_pre_tick_function.description')}
-			bind:value={onPreTickFunction}
-			defaultValue={defaultValues.on_pre_tick_function}
-		/>
-
-		<CodeInput
-			label={translate('dialog.blueprint_settings.on_post_tick_function.title')}
-			tooltip={translate('dialog.blueprint_settings.on_post_tick_function.description')}
-			bind:value={onPostTickFunction}
-			defaultValue={defaultValues.on_post_tick_function}
-		/>
-
-		<NumberSlider
-			label={translate('dialog.blueprint_settings.interpolation_duration.title')}
-			tooltip={translate('dialog.blueprint_settings.interpolation_duration.description')}
-			bind:value={interpolationDuration}
-			defaultValue={defaultValues.interpolation_duration}
-			min={0}
-			max={2147483647}
-			valueStep={1}
-		/>
-
-		<NumberSlider
-			label={translate('dialog.blueprint_settings.teleportation_duration.title')}
-			tooltip={translate('dialog.blueprint_settings.teleportation_duration.description')}
-			bind:value={teleportationDuration}
-			defaultValue={defaultValues.teleportation_duration}
-			min={0}
-			max={2147483647}
-			valueStep={1}
-		/>
-
-		<Checkbox
-			label={translate('dialog.blueprint_settings.auto_update_rig_orientation.title')}
-			tooltip={translate('dialog.blueprint_settings.auto_update_rig_orientation.description')}
-			bind:checked={autoUpdateRigOrientation}
-			defaultValue={defaultValues.auto_update_rig_orientation}
-		/>
-
-		<Checkbox
-			label={translate('dialog.blueprint_settings.use_storage_for_animation.title')}
-			tooltip={translate('dialog.blueprint_settings.use_storage_for_animation.description')}
-			bind:checked={useStorageForAnimation}
-			defaultValue={defaultValues.use_storage_for_animation}
-		/>
 	{/if}
-{/if}
+</div>
 
 <style>
+	.container {
+		max-height: 75vh;
+	}
 	.warning {
 		color: var(--color-warning);
 		font-family: var(--font-code);

@@ -660,7 +660,8 @@
 				"title": "Changes",
 				"list": [
 					"Updated Russian translations to improve consistency and punctuation. - Thanks Koishem!",
-					"Re-enabled Plugin mode - WARNING: This is experimental, and is using a new plugin JSON schema that will likely change in the future. - Thanks Meekiavelique!"
+					"Re-enabled Plugin mode - WARNING: This is experimental, and is using a new plugin JSON schema that will likely change in the future. - Thanks Meekiavelique!",
+					"Added Bisect hosting partnership banner."
 				]
 			},
 			{
