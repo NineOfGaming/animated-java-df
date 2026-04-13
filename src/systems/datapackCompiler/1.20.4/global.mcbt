@@ -5,4 +5,10 @@ template debug {
 				tellraw @a <%TELLRAW.FUNCTION_NOT_EXECUTED_AS_ROOT_ERROR(context.functions.at(-1), root_tag)%>
 		}
 	}
+	with assert:literal executed_as_entity_with_root_uuid_data:literal {
+		IF (debug_mode) {
+			execute unless data entity @s data.root_uuid run return run \
+				tellraw @a <%TELLRAW.FUNCTION_NOT_EXECUTED_AS_ENTITY_WITH_ROOT_UUID_ERROR(context.functions.at(-1))%>
+		}
+	}
 }
