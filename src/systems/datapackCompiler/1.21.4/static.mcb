@@ -605,6 +605,29 @@ IF (has_cameras) {
 	}
 }
 
+function as_root {
+	#ARGS: {command: string}
+	debug assert executed_as_entity_with_root_uuid_data
+
+	$data modify storage <%temp_storage%> args.command set value '$(command)'
+	data modify storage <%temp_storage%> args.root_uuid set from entity @s data.root_uuid
+
+	IF (debug_mode) {
+		scoreboard players set #aj.check <%OBJECTIVES.I()%> 0
+	}
+	block as_root_entity { with storage <%temp_storage%> args
+		$execute as $(root_uuid) run $(command)
+		IF (debug_mode) {
+			# If the function successfully instantiated, the provided command is valid.
+			scoreboard players set #aj.check <%OBJECTIVES.I()%> 1
+		}
+	}
+	IF (debug_mode) {
+		execute if score #aj.check <%OBJECTIVES.I()%> matches 0 run tellraw @a <%TELLRAW.ROOT_COMMAND_FAILED_TO_EXECUTE()%>
+	}
+
+}
+
 dir remove {
 	function all {
 		# Removes all instances of this rig from the world.

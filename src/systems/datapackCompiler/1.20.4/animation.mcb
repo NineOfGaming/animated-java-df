@@ -524,7 +524,9 @@ function summon {
 		function *global/gu/get_entity_uuid_string
 		execute at @s on passengers if entity @s[tag=<%TAGS.GLOBAL_DATA()%>] run block as_data_entity {
 			# Rig Root UUID
+			data modify storage <%temp_storage%> root_uuid set from storage <%gu_storage%> out
 			data modify entity @s data.uuids append from storage <%gu_storage%> out
+			data modify entity @s data.root_uuid set from storage <%gu_storage%> out
 			# Data Entity UUID
 			function *global/gu/get_entity_uuid_string
 			data modify entity @s data.uuids append from storage <%gu_storage%> out
@@ -547,6 +549,7 @@ function summon {
 				# run block ../as_locator/<%locator.storage_name%> {
 					tag @s remove <%TAGS.NEW()%>
 					function *global/gu/get_entity_uuid_string
+					data modify entity @s data.root_uuid set from storage <%temp_storage%> root_uuid
 				}
 				data modify entity @s data.uuids append from storage <%gu_storage%> out
 				data modify entity @s data.uuids_by_name.<%locator.storage_name%> set from storage <%gu_storage%> out
@@ -570,6 +573,7 @@ function summon {
 				# run block ../as_camera/<%camera.storage_name%> {
 					tag @s remove <%TAGS.NEW()%>
 					function *global/gu/get_entity_uuid_string
+					data modify entity @s data.root_uuid set from storage <%temp_storage%> root_uuid
 				}
 				data modify entity @s data.uuids append from storage <%gu_storage%> out
 				data modify entity @s data.uuids_by_name.<%camera.storage_name%> set from storage <%gu_storage%> out
@@ -581,8 +585,10 @@ function summon {
 					on vehicle \
 					on passengers \
 					if entity @s[tag=<%TAGS.PROJECT_NODE_NAMED(export_namespace, node.storage_name)%>] \
-				run \
+				run block as_node/<%node.storage_name%> {
 					function *global/gu/get_entity_uuid_string
+					data modify entity @s data.root_uuid set from storage <%temp_storage%> root_uuid
+				}
 
 				data modify entity @s data.uuids append from storage <%gu_storage%> out
 				data modify entity @s data.uuids_by_name.<%node.storage_name%> set from storage <%gu_storage%> out
@@ -1028,6 +1034,29 @@ IF (has_cameras) {
 			}
 		}
 	}
+}
+
+function as_root {
+	#ARGS: {command: string}
+	debug assert executed_as_entity_with_root_uuid_data
+
+	$data modify storage <%temp_storage%> args.command set value '$(command)'
+	data modify storage <%temp_storage%> args.root_uuid set from entity @s data.root_uuid
+
+	IF (debug_mode) {
+		scoreboard players set #aj.check <%OBJECTIVES.I()%> 0
+	}
+	block as_root_entity { with storage <%temp_storage%> args
+		$execute as $(root_uuid) run $(command)
+		IF (debug_mode) {
+			# If the function successfully instantiated, the provided command is valid.
+			scoreboard players set #aj.check <%OBJECTIVES.I()%> 1
+		}
+	}
+	IF (debug_mode) {
+		execute if score #aj.check <%OBJECTIVES.I()%> matches 0 run tellraw @a <%TELLRAW.ROOT_COMMAND_FAILED_TO_EXECUTE()%>
+	}
+
 }
 
 dir remove {

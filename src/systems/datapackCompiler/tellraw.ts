@@ -162,6 +162,34 @@ namespace TELLRAW {
 		])
 	}
 
+	export const FUNCTION_NOT_EXECUTED_AS_ENTITY_WITH_ROOT_UUID_ERROR = (functionPath: string) => {
+		const hoverText = new JsonText([{ text: functionPath, color: 'yellow' }, '']).flatten()
+
+		return TELLRAW_ERROR('Function Not Executed as Entity with Root UUID Data', [
+			!compareVersions('1.21.5', Project!.animated_java.target_minecraft_version)
+				? {
+						text: '[This Function]',
+						color: 'yellow',
+						hover_event: { action: 'show_text', value: hoverText },
+				  }
+				: {
+						text: '[This Function]',
+						color: 'yellow',
+						hoverEvent: { action: 'show_text', contents: hoverText },
+				  },
+			' must be executed as an entity with the NBT ',
+			{ text: 'data.root_uuid', color: 'yellow' },
+		])
+	}
+
+	export const ROOT_COMMAND_FAILED_TO_EXECUTE = () =>
+		TELLRAW_ERROR('Failed to Execute Command as Root Entity', [
+			'Failed to execute command ',
+			{ nbt: 'args.command', storage: 'animated_java:temp', color: 'yellow' },
+			" as the rig instance's root entity.",
+			'\n Please ensure the command is valid.',
+		])
+
 	export const INVALID_VARIANT = (variants: Record<string, IRenderedVariant>) =>
 		TELLRAW_ERROR('Invalid Variant', [
 			'The variant ',
