@@ -53,6 +53,8 @@ This repository is a fork of Animated Java with support for exporting projects t
 3. Select the downloaded file.
 4. Restart Blockbench.
 
+(you can also copy the files link and use `Load Plugin from URL`)
+
 > [!IMPORTANT]
 > Use Blockbench **4.12.6** (Animated Java is not compatible with version **>=5**): [Download 4.12.6](https://github.com/JannisX11/blockbench/releases/tag/v4.12.6).
 
@@ -107,7 +109,7 @@ This fork is based on [Millo5/animated-java-df](https://github.com/Millo5/animat
 
 <br/>
 
-## 
+##
 
 For questions or discussion: join the [Discord server](https://discord.gg/vpWfwa28Sm).
 
