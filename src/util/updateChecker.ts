@@ -1,43 +1,65 @@
 import { PACKAGE } from '../constants'
 import { localize as translate } from './lang'
+import { compareVersions, extractVersion, isPrereleaseVersion } from './version'
 
 const RELEASES_API_URL =
-	'https://api.github.com/repos/NineOfGaming/animated-java-df/releases/latest'
+	'https://api.github.com/repos/NineOfGaming/animated-java-df/releases?per_page=100'
 const IGNORED_VERSION_KEY = 'animated-java-ignored-update-version'
 const CURRENT_RELEASE_VERSION = PACKAGE.fork_version ?? PACKAGE.version
+const CHECK_PRERELEASES = isPrereleaseVersion(CURRENT_RELEASE_VERSION)
 
 interface GitHubRelease {
 	tag_name?: string
 	name?: string
 	html_url?: string
+	prerelease?: boolean
+	draft?: boolean
 }
 
-function toVersionParts(version: string): number[] {
-	const normalized = version.trim().replace(/^v/i, '').split('-')[0].split('+')[0]
-
-	return normalized.split('.').map(part => {
-		const parsed = Number.parseInt(part, 10)
-		return Number.isNaN(parsed) ? 0 : parsed
-	})
-}
-
-function compareVersions(a: string, b: string): number {
-	const aParts = toVersionParts(a)
-	const bParts = toVersionParts(b)
-	for (let i = 0; i < Math.max(aParts.length, bParts.length); i++) {
-		const aPart = aParts[i] ?? 0
-		const bPart = bParts[i] ?? 0
-		if (aPart > bPart) return 1
-		if (aPart < bPart) return -1
-	}
-	return 0
+interface ReleaseInfo {
+	version: string
+	url: string
+	prerelease: boolean
 }
 
 function extractReleaseVersion(release: GitHubRelease): string | undefined {
-	const candidate = (release.tag_name ?? release.name ?? '').trim()
-	if (!candidate) return undefined
-	const matched = /\d+(?:\.\d+)*/.exec(candidate)
-	return matched?.[0]
+	for (const candidate of [release.tag_name, release.name]) {
+		if (!candidate) continue
+
+		const version = extractVersion(candidate)
+		if (version) return version
+	}
+
+	return undefined
+}
+
+function getReleaseInfo(release: GitHubRelease): ReleaseInfo | undefined {
+	if (release.draft) return undefined
+
+	const version = extractReleaseVersion(release)
+	if (!version) return undefined
+
+	const prerelease = release.prerelease === true || isPrereleaseVersion(version)
+	if (prerelease && !CHECK_PRERELEASES) return undefined
+
+	return {
+		version,
+		url: release.html_url ?? 'https://github.com/NineOfGaming/animated-java-df/releases/latest',
+		prerelease,
+	}
+}
+
+function pickLatestRelease(releases: GitHubRelease[]): ReleaseInfo | undefined {
+	return releases.reduce<ReleaseInfo | undefined>((latestRelease, release) => {
+		const releaseInfo = getReleaseInfo(release)
+		if (!releaseInfo) return latestRelease
+
+		if (!latestRelease || compareVersions(releaseInfo.version, latestRelease.version) > 0) {
+			return releaseInfo
+		}
+
+		return latestRelease
+	}, undefined)
 }
 
 async function fetchLatestRelease() {
@@ -51,24 +73,28 @@ async function fetchLatestRelease() {
 		throw new Error(`Failed to fetch latest release (${response.status})`)
 	}
 
-	const release = (await response.json()) as GitHubRelease
-	const latestVersion = extractReleaseVersion(release)
-	if (!latestVersion) {
+	const releases = (await response.json()) as GitHubRelease[]
+	if (!Array.isArray(releases)) {
 		throw new Error('Could not determine latest release version')
 	}
 
-	return {
-		version: latestVersion,
-		url: release.html_url ?? 'https://github.com/NineOfGaming/animated-java-df/releases/latest',
-	}
+	return pickLatestRelease(releases)
 }
 
-function showUpdateAvailableMessage(latestVersion: string, releaseUrl: string) {
-	const translatedMessage = translate(
+function showUpdateAvailableMessage(
+	latestVersion: string,
+	releaseUrl: string,
+	prerelease: boolean
+) {
+	let translatedMessage = translate(
 		'update_checker.dialog.message',
 		CURRENT_RELEASE_VERSION,
 		latestVersion
 	)
+
+	if (prerelease) {
+		translatedMessage += `\n\n${translate('update_checker.dialog.prerelease_note')}`
+	}
 
 	Blockbench.showMessageBox(
 		{
@@ -101,6 +127,16 @@ export async function checkForUpdates(options: { manual?: boolean } = {}): Promi
 	const manual = options.manual ?? false
 	try {
 		const latestRelease = await fetchLatestRelease()
+		if (!latestRelease) {
+			if (manual) {
+				Blockbench.showQuickMessage(
+					translate('update_checker.quick_message.up_to_date', CURRENT_RELEASE_VERSION),
+					2500
+				)
+			}
+			return
+		}
+
 		const comparison = compareVersions(latestRelease.version, CURRENT_RELEASE_VERSION)
 		const hasUpdate = comparison > 0
 
@@ -121,7 +157,11 @@ export async function checkForUpdates(options: { manual?: boolean } = {}): Promi
 			}
 		}
 
-		showUpdateAvailableMessage(latestRelease.version, latestRelease.url)
+		showUpdateAvailableMessage(
+			latestRelease.version,
+			latestRelease.url,
+			latestRelease.prerelease
+		)
 	} catch (error) {
 		console.error('[Animated Java DF] Failed to check for updates:', error)
 		if (manual) {

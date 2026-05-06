@@ -120,6 +120,8 @@ animated_java:
 
         Installed: v%s
         Latest: v%s
+      prerelease_note: |-
+        This is a pre-release version. It may be unstable or include unfinished changes, so update only if you are okay with testing newer builds.
       button:
         download: Download
         later: Later
