@@ -65,7 +65,7 @@ export function buildHelperTemplate(
 		? undefined
 		: {
 				blocks: [createFunctionBlock(definition), ...(definition.extraBlocks ?? [])],
-		  }
+			}
 
 	return {
 		template,
@@ -104,7 +104,8 @@ export const DF_BASE_HELPER_DEFINITIONS: DFHelperTemplateDefinition[] = [
 		displayName: 'Spawn',
 		functionName: 'rig.spawn',
 		category: 'required',
-		description: 'Spawns an instance of the rig at the specified location.\nAutomatically applies animation "default" at tick 0 after spawning.',
+		description:
+			'Spawns an instance of the rig at the specified location.\nAutomatically applies animation "default" at tick 0 after spawning.',
 		codetemplateData: `'{"author":"NineOfGaming","name":"§b§lFunction §3» §brig.spawn","version":1,"code":"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"}'`,
 	},
 	{
@@ -112,7 +113,8 @@ export const DF_BASE_HELPER_DEFINITIONS: DFHelperTemplateDefinition[] = [
 		displayName: 'Animate',
 		functionName: 'rig.animate',
 		category: 'required',
-		description: 'Sets the rig to the specified ticks pose.\nResets the selection and restores your previous selection.',
+		description:
+			'Sets the rig to the specified ticks pose.\nResets the selection and restores your previous selection.',
 		codetemplateData: `'{"author":"NineOfGaming","name":"§b§lFunction §3» §brig.animate","version":1,"code":"H4sIAAAAAAAA/9VWTVPbMBD9Kx716mGAUph6poe2gWkOpR0+eiGMR5HXjooseaQ1bZrJf+/KToKdOMFAOfQSrNVq39td7RMzNlZG3DkW3cyYTFhUr1m4+BuxtNSCltxm5EQ+CPnCm74qiz9VLUKWcORLL7LOBmfx+aer6Oj45CAUJi+MBo0umo1YLjUIy1OMROnQ5LHmOYzoLPxGyym+MMrYaMTeHA8+n5y+H7EQaYsMH7XMOUJwIbMRm9+GErmSItofLx3IGjYBQIsJ15gTdJwpSb/mHqyVicejY01fwvTWm9nYqMRvLmn8mlBORGKdXmb59IHbJaALcAKBlVmApvp0BQiZSkgClFTpoDAO9taYm3FaOkFZVZgOrbwDnFhTZpNWYmGpE7CUQ+U4D59J8wLckqgDBQKl0QHXSWCBekE/wdSUNigs3EtTugenf8T7dk6ES43RYSiTqFl/p2Wago0h881l83nInDJIfaJk21eu0DGoxp3zF8jfxIRsOC38N9dTWhSqtFyxKOXKQchM4TNpGBJwwsrKSmdONUqcBsNBA/ygL3huksq8wMff+GT8rz5EG/6wLzyn0XgZej1c/jq0GLztywAf4HWZPxn+SuYQSF1PSgP/qHf3NYIt1kkkkPJSYXzPVQmrEIu9doCDCnUra7TlBulhhWlUXbcO9u822I9VjDxroJtlsDOP6PnTNoV2wReZJKC9AouFSzIlrlKsa3Tjvhz7CVvEZiRFe7zWTFYR6VJ50gOqjn1c6GuntaKt9IG2nDBV5f2w75zfzLejEWvRscuVIF0RFcDg+no4cFVF/JI8BnU3W/Pp810V6MP2PAVXKu73pHVmWqlL7xQ7Qyw1YkuUTa3pjLIY9S1BNhWjMwhuj7A58d31WM7bljBHW27injbVI7TrRvp7EJvxz45Wtdr9SCCZvvbNbrH54TVm6E7zAv3jw5EexXGJ/uD5t6sGTcsFPZYeUlrCIBOF1w3pMjZ/ZnleJ7Pvik/BnvvjLy72o8N/Kf/A7qHfHLdOQd/vpxP/XTfq/1O8OO7MQihTvyedafT0v53/BUkWducoDAAA"}'`,
 	},
 	{
@@ -120,7 +122,8 @@ export const DF_BASE_HELPER_DEFINITIONS: DFHelperTemplateDefinition[] = [
 		displayName: 'Animate No Reset',
 		functionName: 'rig.animate.noReset',
 		category: 'required',
-		description: 'Sets the rig to the specified ticks pose.\nKeeps the rig-entities selection active after animating.',
+		description:
+			'Sets the rig to the specified ticks pose.\nKeeps the rig-entities selection active after animating.',
 		codetemplateData: `'{"author":"NineOfGaming","name":"§b§lFunction §3» §brig.animate.noReset","version":1,"code":"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"}'`,
 	},
 	{
@@ -136,7 +139,8 @@ export const DF_BASE_HELPER_DEFINITIONS: DFHelperTemplateDefinition[] = [
 		displayName: 'Select Nodes',
 		functionName: 'rig.selectNodes',
 		category: 'optional',
-		description: 'Selects the specified rig nodes.\nIf no node IDs are provided, selects all nodes in the rig.',
+		description:
+			'Selects the specified rig nodes.\nIf no node IDs are provided, selects all nodes in the rig.',
 		codetemplateData: `'{"author":"NineOfGaming","name":"§b§lFunction §3» §brig.selectNodes","version":1,"code":"H4sIAAAAAAAA/+1X0U7bMBT9lcgTEkgRomwCLW+sFFFp42HAXiiKHNtJPRw7sx2gq/rvu3ZSSNoGWmDaJu0F4ptrn3Ovz3HcKUqEIjcGRVdTxCmKqjEK6/8RSktJYIh1BkmQY1leZ8OTj7hZfhAiii2eZ0F0enwSn326iD4cHPZCovJCSSatiaYjlHPJiMapjUhprMpjiXM2grns3moM6xMllI5G6N3Bcf9w8HGEQguvIHDOBCM2OFOUmRGaXYfcYsFJtJfMMyAaNhGYJGMsbQ7YcSY4/FW3TGtOHWAvaeUCqIteTRMlqFtzzuNuDEUBi0V+mcaTRXImsGMWmIIRnnJGA82zQDq+uwuEVZKWhmDLPJSxmt8wO9aqzMatesJSUqaBuk+chS9kN0yBhmcSDI9NgDULCq1uoRE0DExNHQtRkQ249HUA+zfifT0DwqW00X7IadRsu5E8TZmOWZYBFJrNQmSEsijag2LbUitkzERDa044ToEUYnZSuGcsJzAoRKmxQFGKhWEhUoXlSjYCUCLR3EdhzkBabifQlwZ4b13wHPolHvHtvd0Y/4tbog2/vy68264hNV0ErC5b+NW4DX9Wi6IB/34JPhGxxVkDX82nn7iSHD68jtDQBKecUibdwUHqFDoBtpwsHi2Ncg+cQOq1kVNdJUnvdOTJrDqgeBrfYv38EVUldXbOEOVb58Ta0p/j9FDEZ27sOf/JBj9KqLhBSmMCFnAAXANnCMFy8nFHpNJ5dw1VobFKvj9fR7W3qwQYw/unnLOyA943HcX32sV7i3Bm+kr6SWVyNH91ik3fn+MXIIA3KXMl2bnP1tusEy4s044t95GXUCZKWq3ECr4tqK/Mllo+qQciVGWRdQTxu0W9KA1Z5svr9Lql8N8Hf7cPFkte2awtDl/n++1aLmFvp7vkf9hKhtlXemn9z0NfM7gUOXN089GsgKRXWXuTnX/ZCbF88+n+9l/AdeLh038khLoLXAeCPly6M9+8RxkpPcBkvNyNpVvA0pT1j5j5kn9IEOtZD36L6Mm2u+RsAcy2N/RO9czpzi6rj5jQR6rt2nnCn0cFtIB+wwK2YgPnPN+qVx5Um9mnuoNfXrpb8PXsF9ygQXCcDgAA"}'`,
 	},
 	{
@@ -151,7 +155,7 @@ export const DF_BASE_HELPER_DEFINITIONS: DFHelperTemplateDefinition[] = [
 		templateName: 'RigMove',
 		displayName: 'Move',
 		functionName: 'rig.move',
-		category: 'optional',
+		category: 'required',
 		description: 'Moves the rig instance to the specified location.',
 		codetemplateData: `'{"author":"NineOfGaming","name":"§b§lFunction §3» §brig.move","version":1,"code":"H4sIAAAAAAAA/7VUUU/bMBD+K5H3GqHCEGh521oQaGOaGG8URY5zST0cO7IvjKrqf9/ZTUpSWtai7aWN7873fZ99nxcsU0Y8OpbcL5jMWbJas7j9T1jRaEFLbksqohqEqq2mrxDxu8IiZjlH3lVRdDG5TL9/uUtOz86PY2Gq2mjQ6JLFlFVSg7C8wEQ0Dk2Val7BlPbCM1pO/YVRxiZT9uFsMj6/+DRlMVKKAjfmCaJbWU7Z8iGWyJUUySjrshSN+91BixnXWBFuWipJv7TdWpl7sONsUEuAPnq/yIzKfc+Ow+8ZCSIGm9xKy+dDYi7CGURWlpHUDrkWEKEJMVeDkIWEPKKD5SiNPtpQYLKicZSCgO3QykfAmTVNORsIjBudgyUtoXD5sCSejcbkJJZ50tfjtCwKsCmU/rDYchkzpwyyZLSMN+6v1imo3gX62/DXmlMM57X/5npOi1o1liuWFFw5iJmpvZJeIAcnrAxR2nOhUeI8up70wI/3Ba9MHsItPj7jW/hom1fwN77DEP1kX3S6pRfs1eIw7d/aa+6Bf9wXHEFBbSxOCDD0WDPRTfAZFLxRmD5x1cC6WZsbthoF/IOO7a5Fj9bwLxJOX0nIVIq87AGbrs+lB/PUKZ2waxddyTwHL4aLtiSfE00pNt+b3n2d+QFvezMy1lFFNmOBxbbnyhF3QSbPfv390VpN1LapSyn/ll2euN1hFifMamLIhYOh9yrWsoMvJLix0WFTk33uUlfcjcOLeEen9k9kbiXbmWsH39GQ76VUCNazle04Hk4ZwluQtj3fx3qLL/YTMJGuvvvRtxPBA9Wxn+Ekw5D/T+arF2Qn2fea6itAHY0ba4ljdGuwk7cW3nl5p5xXVtu29ZDTenM0BwC34Kgpgf4BrRi104YIAAA="}'`,
 	},
@@ -184,7 +188,8 @@ export const DF_BASE_HELPER_DEFINITIONS: DFHelperTemplateDefinition[] = [
 		displayName: 'Apply Offset',
 		functionName: 'rig.applyOffset',
 		category: 'optional',
-		description: 'Creates an offset matrix from TLSR values and\napplies it to the selected rig node entities.',
+		description:
+			'Creates an offset matrix from TLSR values and\napplies it to the selected rig node entities.',
 		codetemplateData: `'{"author":"NineOfGaming","name":"§b§lFunction §3» §brig.applyOffset","version":1,"code":"H4sIAAAAAAAA/8VWUU/bMBD+K5b3alWUIdAi7WGjoCGxTSrlqa0iJ3FSD8eO7AvQVf3vO6fpSNIUuq3SpIrW5/N3332+O7OikTLxg6PBdEVlQoPNmrL6O6BpqWNccpuhE/qAyGtv/FVZ/KlqwWjCgW+90LoaXYffPk+Cs/OLIYtNXhgtNLhgNaO51CK2PIUgLh2YPNQ8FzM8K57BcsSPjTI2mNF356PLi6sPM8oAt9DwqSjUknxPUydgRtdzJoErGQcn0dYDrawZQeh4wTXkGDvMlMS/5lFYKxMfcBi1fDGot05XkVGJx9zyeFpgUsiiyy+zfPlC7tIKDsIRrompGJKcg5XPJLUmJ5PbuzF55KqsPJIOexOlpYvxeBXX4bEHAQtrymzRSo6VOhEW86gc1+wvqXLUUSIRCQQMgYUgTigRY3hiZUa0SQRBxSSg0+A4VOdr5FhqCE6ZTIKm7E7LNBU2FFmGoeh6zahTBmhwgvm1S63QoVCNWvOFg2ZMVTvFQRqNm7AsvFFJB7gqVGm5okHKlROMmsJ7eQPYEteJcLGVlRHPTFpA2oAHmj4zsmTk53xARiLlpQLnVZueMOI/80GD8vBQykqkMDZwBM63iETsC1SHNSNPe4gzMmxxPz2UO96+Ev9G+q6GeEPiIXLs0nx/KE2s5MWRNB57qKOIfLbDPlIh8KxB32yjXntqnjhuB/TGkS8ySYQPz+PaJVlisjLuzuzGpZ77zquxvSQD3/vLzQilFZm+yY+b4SO3bw//jVO3QKphslHKxaaWXYtXezvDgM1brK/rbotFJkgFh+r9/c3IVar4JXrUsre60Of8W6SPr+Xp0UMT/ehJtQUyFq8KhvWswsPey17JNi/G1+rB+BPVesHa83AP1u6o6sXqDKo9YLuzo78w6rbfg7Lb2r0o3cbeg3bWrfzqvxAnapH/riaOVv6t4rryb+3SV/b/r7D942Ir3Hz9C7a8HNg7CgAA"}'`,
 	},
 	{
@@ -250,7 +255,9 @@ export function getDFBaseTemplateDefinitions(category?: DFBaseTemplateCategory) 
 	return DF_BASE_HELPER_DEFINITIONS.filter(definition => definition.category === category)
 }
 
-export function buildDFBaseTemplateItems(category?: DFBaseTemplateCategory): CodeClientTemplateItem[] {
+export function buildDFBaseTemplateItems(
+	category?: DFBaseTemplateCategory
+): CodeClientTemplateItem[] {
 	return getDFBaseTemplateDefinitions(category).map(buildHelperTemplate)
 }
 
