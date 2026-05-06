@@ -55,9 +55,6 @@ This repository is a fork of Animated Java with support for exporting projects t
 
 (you can also copy the files link and use `Load Plugin from URL`)
 
-> [!IMPORTANT]
-> Use Blockbench **4.12.6** (Animated Java is not compatible with version **>=5**): [Download 4.12.6](https://github.com/JannisX11/blockbench/releases/tag/v4.12.6).
-
 <br/>
 
 ## Export to DiamondFire
