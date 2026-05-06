@@ -1,5 +1,5 @@
-import { PACKAGE } from 'src/constants'
-import { translate } from './translation'
+import { PACKAGE } from '../constants'
+import { localize as translate } from './lang'
 
 const RELEASES_API_URL =
 	'https://api.github.com/repos/NineOfGaming/animated-java-df/releases/latest'

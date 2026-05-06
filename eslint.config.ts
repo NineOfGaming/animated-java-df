@@ -1,9 +1,9 @@
 import svelteEslint from 'eslint-plugin-svelte'
 import svelteParser from 'svelte-eslint-parser'
 import tsESLint, { type ConfigWithExtends } from 'typescript-eslint'
-import type { NamingConventionRule } from './tools/tslintNamingConventionRule'
+import type { NamingConventionRule } from './.scripts/tslintNamingConventionRule.d.ts'
 
-console.log(`⚙️ Loading ESLint config...`)
+console.log('⚙️  Loading ESLint config...')
 
 const IGNORE_PATTERNS = [
 	'.DS_Store',
@@ -12,6 +12,9 @@ const IGNORE_PATTERNS = [
 	'.github',
 	'.vscode',
 	'**/node_modules/**',
+	'.scripts/**/*.cjs',
+	'.scripts/**/*.js',
+	'test-packs/**/mcb.config.js',
 
 	// Blockbench Plugin Template
 	'dist/**/*',
@@ -53,21 +56,12 @@ const CUSTOM_RULES: ConfigWithExtends['rules'] = {
 	'@typescript-eslint/restrict-template-expressions': 'off',
 	'@typescript-eslint/no-unsafe-member-access': 'off',
 	'@typescript-eslint/no-unsafe-assignment': 'off',
-	'@typescript-eslint/ban-ts-comment': [
-		'warn',
-		{
-			minimumDescriptionLength: 3,
-			'ts-check': false,
-			'ts-expect-error': 'allow-with-description',
-			'ts-ignore': true,
-			'ts-nocheck': true,
-		},
-	],
+	'@typescript-eslint/ban-ts-comment': 'off',
 	'@typescript-eslint/require-await': 'warn',
 	'@typescript-eslint/no-unsafe-call': 'off',
 	'@typescript-eslint/unbound-method': 'off',
 	'@typescript-eslint/no-non-null-assertion': 'off',
-	'@typescript-eslint/explicit-member-accessibility': ['error', { accessibility: 'no-public' }],
+	'@typescript-eslint/triple-slash-reference': 'off',
 	// Naming conventions
 	'@typescript-eslint/naming-convention': [
 		'warn',
@@ -76,12 +70,12 @@ const CUSTOM_RULES: ConfigWithExtends['rules'] = {
 			selector: ['import'],
 			modifiers: ['default'],
 			filter: {
-				regex: 'v\\d+_\\d+_\\d+$',
+				regex: '(old_)?v[\\d_]+(_pre\\d+|_beta_\\d+)?$',
 				match: true,
 			},
 			custom: {
 				match: true,
-				regex: 'v\\d+_\\d+_\\d+$',
+				regex: '(old_)?v[\\d_]+(_pre\\d+|_beta_\\d+)?$',
 			},
 			format: null,
 		},
@@ -196,7 +190,6 @@ export default tsESLint.config(
 		languageOptions: {
 			parser: tsESLint.parser,
 			parserOptions: {
-				project: './tsconfig.json',
 				extraFileExtensions: ['.svelte'],
 			},
 			globals: {
@@ -222,7 +215,7 @@ export default tsESLint.config(
 				{
 					selector: 'variable',
 					modifiers: ['const', 'global'],
-					format: ['UPPER_CASE'],
+					format: ['camelCase', 'UPPER_CASE'],
 				},
 				{
 					selector: 'variable',

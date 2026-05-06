@@ -1,9 +1,9 @@
-import { openAnimationPropertiesDialog } from 'src/interface/dialog/animationProperties'
-import { registerConditionalPropertyOverrideMod, registerMod } from 'src/util/moddingTools'
-import { isReservedAnimationName, normalizeAnimationName } from 'src/util/animationName'
+import { registerPatch, registerPropertyOverridePatch } from 'blockbench-patch-manager'
+import { openAnimationPropertiesDialog } from '../dialogs/animationProperties/animationProperties'
 import { activeProjectIsBlueprintFormat } from '../formats/blueprint'
+import { isReservedAnimationName, normalizeAnimationName } from '../util/animationName'
+import { localize as translate } from '../util/lang'
 import { roundToNth } from '../util/misc'
-import { translate } from '../util/translation'
 
 declare global {
 	// eslint-disable-next-line @typescript-eslint/naming-convention
@@ -24,12 +24,12 @@ export const DEFAULT_SNAPPING_VALUE = 20
 export const MINIMUM_ANIMATION_LENGTH = 0.05
 
 //region Extend
-registerConditionalPropertyOverrideMod({
-	id: `animated-java:function-override/animation/extend`,
-	object: Blockbench.Animation.prototype,
+registerPropertyOverridePatch({
+	id: `animated_java:function-override/animation/extend`,
+	target: Blockbench.Animation.prototype,
 	key: 'extend',
 
-	condition: () => activeProjectIsBlueprintFormat(),
+	getCondition: () => activeProjectIsBlueprintFormat(),
 
 	get: original => {
 		return function (this: _Animation, data?: AnimationOptions) {
@@ -53,12 +53,12 @@ registerConditionalPropertyOverrideMod({
 })
 
 //region Set Length
-registerConditionalPropertyOverrideMod({
-	id: `animated-java:function-override/animation/set-length`,
-	object: Blockbench.Animation.prototype,
+registerPropertyOverridePatch({
+	id: `animated_java:function-override/animation/set-length`,
+	target: Blockbench.Animation.prototype,
 	key: 'setLength',
 
-	condition: () => activeProjectIsBlueprintFormat(),
+	getCondition: () => activeProjectIsBlueprintFormat(),
 
 	get: original => {
 		return function (this: _Animation, length?: number) {
@@ -69,12 +69,12 @@ registerConditionalPropertyOverrideMod({
 })
 
 //region Reserved Names
-registerConditionalPropertyOverrideMod({
-	id: `animated-java:function-override/animation/create-unique-name`,
-	object: Blockbench.Animation.prototype,
+registerPropertyOverridePatch({
+	id: `animated_java:function-override/animation/create-unique-name`,
+	target: Blockbench.Animation.prototype,
 	key: 'createUniqueName',
 
-	condition: () => activeProjectIsBlueprintFormat(),
+	getCondition: () => activeProjectIsBlueprintFormat(),
 
 	get: original => {
 		return function (this: _Animation, references: _Animation[]) {
@@ -90,7 +90,6 @@ registerConditionalPropertyOverrideMod({
 
 			const result = original.call(this, normalizedReferences)
 
-			// Defensive fallback if Blockbench's internals rewrite the name.
 			const normalizedResultName = normalizeAnimationName(this.name)
 			if (normalizedResultName && normalizedResultName !== this.name) {
 				this.name = normalizedResultName
@@ -108,12 +107,12 @@ registerConditionalPropertyOverrideMod({
 })
 
 //region Properties Dialog
-registerConditionalPropertyOverrideMod({
-	id: `animated-java:function-override/animation/properties-dialog`,
-	object: Blockbench.Animation.prototype,
+registerPropertyOverridePatch({
+	id: `animated_java:function-override/animation/properties-dialog`,
+	target: Blockbench.Animation.prototype,
 	key: 'propertiesDialog',
 
-	condition: () => activeProjectIsBlueprintFormat(),
+	getCondition: () => activeProjectIsBlueprintFormat(),
 
 	get: () => {
 		return function (this: _Animation) {
@@ -127,8 +126,8 @@ registerConditionalPropertyOverrideMod({
 })
 
 //region Properties
-registerMod({
-	id: `animated-java:property-definitions/animation`,
+registerPatch({
+	id: `animated_java:property-definitions/animation`,
 
 	apply: () => {
 		const excludedNodesProperty = new Property(
@@ -151,23 +150,25 @@ registerMod({
 })
 
 //region Force Saved
-registerConditionalPropertyOverrideMod({
-	id: `animated-java:animation-force-saved`,
-	object: Blockbench.Animation.prototype,
+registerPropertyOverridePatch({
+	id: `animated_java:animation-force-saved`,
+	target: Blockbench.Animation.prototype,
 	key: 'saved',
 
-	condition: () => activeProjectIsBlueprintFormat(),
+	getCondition: () => activeProjectIsBlueprintFormat(),
 
 	get: () => true,
+
+	set: () => true,
 })
 
 //region Save All Action
-registerConditionalPropertyOverrideMod({
-	id: `animated-java:action-condition-override/save-all-animations`,
-	object: BarItems.save_all_animations as Action,
+registerPropertyOverridePatch({
+	id: `animated_java:action-condition-override/save-all-animations`,
+	target: BarItems.save_all_animations as Action,
 	key: 'condition',
 
-	condition: () => activeProjectIsBlueprintFormat(),
+	getCondition: () => activeProjectIsBlueprintFormat(),
 
 	get: () => false,
 })

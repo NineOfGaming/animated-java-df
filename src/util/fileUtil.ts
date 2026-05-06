@@ -1,5 +1,4 @@
-import * as fs from 'fs'
-import * as pathModule from 'path'
+import { getFsModule } from '../constants'
 
 export function normalizePath(path: string): string {
 	return path.replace(/\\/g, '/')
@@ -39,8 +38,8 @@ export function isRelativePath(path: string) {
 
 export function resolveRelativePath(path: string) {
 	if (!Project?.save_path) return
-	const saveFolder = pathModule.dirname(Project.save_path)
-	return pathModule.resolve(saveFolder, path)
+	const saveFolder = PathModule.dirname(Project.save_path)
+	return PathModule.resolve(saveFolder, path)
 }
 
 export function resolvePath(path: string): string {
@@ -60,19 +59,21 @@ export function swapPathRoot(path: string, oldRoot: string, newRoot: string) {
 	oldRoot = normalizePath(oldRoot)
 	newRoot = normalizePath(newRoot)
 	if (path.startsWith(oldRoot)) {
-		return pathModule.join(newRoot, path.slice(oldRoot.length))
+		return PathModule.join(newRoot, path.slice(oldRoot.length))
 	}
 	throw new Error(`Cannot swap path root! Path "${path}" does not start with "${oldRoot}"`)
 }
 
 export function safeReadSync(path: string): Buffer | undefined {
+	const { readFileSync } = getFsModule()
 	try {
-		return fs.readFileSync(path)
+		return readFileSync(path)
 	} catch {
 		return undefined
 	}
 }
 
-export async function safeRead(path: string) {
-	return fs.promises.readFile(path).catch(() => undefined)
+export function safeRead(path: string) {
+	const { readFile } = getFsModule().promises
+	return readFile(path).catch(() => undefined)
 }
