@@ -21,6 +21,9 @@ BBPlugin.register(PACKAGE.name, {
 		// Wait for plugin system to finish loading plugins.
 		requestAnimationFrame(() => {
 			EVENTS.PLUGIN_LOAD.publish()
+			requestAnimationFrame(() => {
+				EVENTS.PLUGIN_FINISHED_LOADING.publish()
+			})
 		})
 	},
 	onunload() {
