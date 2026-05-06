@@ -77,25 +77,25 @@ This repository is a fork of Animated Java with support for exporting projects t
 
 ## Use exported rigs in-game
 
-1. Send both template sets from Blockbench.  
-	- `Animated Java > DiamondFire > Export` sends your project-specific init function as `rig.init.<project_name>`.  
-	- `Animated Java > DiamondFire > Base Templates > ...`  
-		- `... > Get Required Templates` sends the core helpers (`rig.spawn`, `rig.animate`, etc.).  
-		- `... > Get Optional Templates` sends useful helpers (`rig.setVariant`, offset helpers, etc.).  
-		- `... > Get All Templates` sends both sets at once.
-2. Initialize each model once (for example in your setup/load code).  
-	- Use `rig.init.rig("<project_name>")` for one model, or `rig.init.rigs(<list>)` for multiple.
-3. Spawn a rig instance.  
-	- Use `rig.spawn(<entities_return_var>, "<instance_id>", "<project_name>", <location>)`.  
-	- `<instance_id>` is the unique runtime instance key, while `<project_name>` is the exported model id from the previous steps.
-4. Animate the spawned instance.  
-	- Use `rig.animate("<instance_id>", "<project_name>", "<animation_name>", <tick>, <interp_optional>)`.  
-	- `<tick>` is the current frame.  
-	- `<interp_optional>` should always match the amount of ticks waiting between each frame. (set to 0 to disable interpolation)  
-	- Use `rig.animate.noReset(...)` when you want to keep the rig-entities selection active after animating.  
-	- Use `rig.animate(...)` when you want that selection reset automatically and restore your previous selection.
-5. Removing the rig.  
-	- Use `rig.remove("<instance_id>")`.
+1. Send both template sets from Blockbench.
+    - `Animated Java > DiamondFire > Export` sends your project-specific init function as `rig.init.<project_name>`.
+    - `Animated Java > DiamondFire > Base Templates > ...`
+        - `... > Get Required Templates` sends the core helpers (`rig.spawn`, `rig.animate`, etc.).
+        - `... > Get Optional Templates` sends useful helpers (`rig.setVariant`, offset helpers, etc.).
+        - `... > Get All Templates` sends both sets at once.
+2. Initialize each model once (for example in your setup/load code).
+    - Use `rig.init.rig("<project_name>")` for one model, or `rig.init.rigs(<list>)` for multiple.
+3. Spawn a rig instance.
+    - Use `rig.spawn(<entities_return_var>, "<instance_id>", "<project_name>", <location>)`.
+    - `<instance_id>` is the unique runtime instance key, while `<project_name>` is the exported model id from the previous steps.
+4. Animate the spawned instance.
+    - Use `rig.animate("<instance_id>", "<project_name>", "<animation_name>", <tick>, <interp_optional>)`.
+    - `<tick>` is the current frame.
+    - `<interp_optional>` should always match the amount of ticks waiting between each frame. (set to 0 to disable interpolation)
+    - Use `rig.animate.noReset(...)` when you want to keep the rig-entities selection active after animating.
+    - Use `rig.animate(...)` when you want that selection reset automatically and restore your previous selection.
+5. Removing the rig.
+    - Use `rig.remove("<instance_id>")`.
 
 > [!NOTE]
 > `rig.spawn` automatically applies animation `default` at tick `0` after spawning.  
@@ -127,34 +127,34 @@ Animated Java is a cutting-edge Blockbench plugin designed for Minecraft: Java E
 
 # ✨ Key Features
 
--   **Function API** - Simple, yet powerful, API for summoning, and controlling animated models.
+- **Function API** - Simple, yet powerful, API for summoning, and controlling animated models.
 
--   **Variants** - Swap between different textures in-game.
+- **Variants** - Swap between different textures in-game.
 
--   **Text Displays** - Preview, edit, and animate text displays in Blockbench.
+- **Text Displays** - Preview, edit, and animate text displays in Blockbench.
 
--   **Keyframe Easing Curves** - Create smooth animations with ease.
+- **Keyframe Easing Curves** - Create smooth animations with ease.
 
--   **Locators** - Execute commands using Function Keyframes, teleport entities in an animation, and more.
+- **Locators** - Execute commands using Function Keyframes, teleport entities in an animation, and more.
 
--   **Animation Tweening** - Smoothly transition be<ins>tween</ins> animations.
+- **Animation Tweening** - Smoothly transition be<ins>tween</ins> animations.
 
--   **Camera Support** - Install the [Official Camera Plugin](https://www.blockbench.net/plugins/cameras) to create cinematic camera paths with ease.
+- **Camera Support** - Install the [Official Camera Plugin](https://www.blockbench.net/plugins/cameras) to create cinematic camera paths with ease.
 
--   **Well Optimized** - Hours of effort have been poured into making Animated Java's Data Pack as low-impact as possible.
+- **Well Optimized** - Hours of effort have been poured into making Animated Java's Data Pack as low-impact as possible.
 
--   **Resource Packs are Optional** - Animate Vanilla block and item models using Item and Block Display entities.
+- **Resource Packs are Optional** - Animate Vanilla block and item models using Item and Block Display entities.
 
--   **Molang Support** - If Blockbench can render your Molang expressions in the preview, you can use it in Animated Java.
+- **Molang Support** - If Blockbench can render your Molang expressions in the preview, you can use it in Animated Java.
 
 <br/>
 
 # 📦 Installation
 
--   ❔ [Getting Started](https://animated-java.dev/docs/getting-started/using-animated-java)
--   📚 [Documentation](https://animated-java.dev/docs)
--   🌐 [Website](https://animated-java.dev)
--   🗣️ [Discord](https://animated-java.dev/discord)
+- ❔ [Getting Started](https://animated-java.dev/docs/getting-started/using-animated-java)
+- 📚 [Documentation](https://animated-java.dev/docs)
+- 🌐 [Website](https://animated-java.dev)
+- 🗣️ [Discord](https://animated-java.dev/discord)
 
 <br/>
 
