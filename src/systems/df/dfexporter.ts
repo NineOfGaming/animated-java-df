@@ -297,6 +297,7 @@ function serializeNodeForDF(
 				data: {
 					...serializeDisplayNodeCommon(node),
 					material: ensureNamespacedId(Project!.animated_java.display_item),
+					item_display: 'head',
 					item_model: defaultVariantModel.item_model,
 				},
 			}
