@@ -94,17 +94,15 @@ This repository is a fork of Animated Java with support for exporting projects t
 5. Removing the rig.
     - Use `rig.remove("<instance_id>")`.
 
-Function icon stack count guide:
+Function icon stack count guide:  
 The stack count shown on each function icon is a quick usage hint:
-- `1`: Setup functions. Use these once during a rig's lifecycle, usually while initializing or loading it.
+
+- `1`: Setup functions. Use these once during a rig's lifecycle, usually while initializing or spawning it.
 - `2`: Runtime helpers. These are the functions you will call regularly while the rig is active.
 - `3`: Internal helpers. These are used internally and usually do not need to be called directly.
 
 > [!NOTE]
 > `rig.spawn` automatically applies animation `default` at tick `0` after spawning.  
-> If you need lower-level control, `rig.load_animation(...)` and `rig.decodeMatrices(...)` are available.
-
-> [!NOTE]
 > Locator variables can be accessed via `rig.<project_name>.<instance_id>.locators.<locator_name>.location`
 
 <br/>
