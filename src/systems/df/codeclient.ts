@@ -3,6 +3,11 @@ import type { CodeClientTemplateItem } from './types'
 // https://github.com/DFOnline/CodeClient/wiki/API
 
 const CODECLIENT_API_URL = 'ws://localhost:31375'
+const DEFAULT_INTER_GIVE_COMMAND_DELAY_MS = 50
+
+function wait(ms: number) {
+	return new Promise(resolve => setTimeout(resolve, ms))
+}
 
 function escapeSnbtString(value: string) {
 	return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
@@ -65,7 +70,10 @@ function parseAndNormalizeCodeTemplateData(value: string) {
 }
 
 export class CodeClientError extends Error {
-	constructor(message: string, public cause?: unknown) {
+	constructor(
+		message: string,
+		public cause?: unknown
+	) {
 		super(message)
 		this.name = 'CodeClientError'
 	}
@@ -74,17 +82,22 @@ export class CodeClientError extends Error {
 interface CodeClientSocketOptions {
 	url?: string
 	postSendResponseWindowMs?: number
+	interGiveCommandDelayMs?: number
 }
 
 export class CodeClientSocket {
 	private socket: WebSocket | undefined
 	private connecting: Promise<WebSocket> | undefined
+	private sendQueue: Promise<void> = Promise.resolve()
 	private readonly url: string
 	private readonly postSendResponseWindowMs: number
+	private readonly interGiveCommandDelayMs: number
 
 	constructor(options: CodeClientSocketOptions = {}) {
 		this.url = options.url ?? CODECLIENT_API_URL
 		this.postSendResponseWindowMs = options.postSendResponseWindowMs ?? 1500
+		this.interGiveCommandDelayMs =
+			options.interGiveCommandDelayMs ?? DEFAULT_INTER_GIVE_COMMAND_DELAY_MS
 	}
 
 	async sendGiveCommand(giveCommand: string): Promise<void> {
@@ -92,6 +105,16 @@ export class CodeClientSocket {
 	}
 
 	async sendGiveCommands(giveCommands: string[]): Promise<void> {
+		const queuedSend = this.sendQueue
+			.catch(() => undefined)
+			.then(() => this.sendGiveCommandsImmediately(giveCommands))
+		this.sendQueue = queuedSend.catch(() => undefined)
+		return queuedSend
+	}
+
+	private async sendGiveCommandsImmediately(giveCommands: string[]): Promise<void> {
+		if (giveCommands.length === 0) return
+
 		const socket = await this.getSocket()
 		const errors: string[] = []
 		const parseTasks: Array<Promise<void>> = []
@@ -130,7 +153,8 @@ export class CodeClientSocket {
 		}
 
 		socket.addEventListener('message', onMessage)
-		for (const command of giveCommands) {
+		for (let i = 0; i < giveCommands.length; i++) {
+			const command = giveCommands[i]
 			try {
 				socket.send(command)
 			} catch (error) {
@@ -139,6 +163,9 @@ export class CodeClientSocket {
 					'Failed to send command to CodeClient API. Ensure the CodeClient API connection is open.',
 					error
 				)
+			}
+			if (i < giveCommands.length - 1 && this.interGiveCommandDelayMs > 0) {
+				await wait(this.interGiveCommandDelayMs)
 			}
 		}
 
