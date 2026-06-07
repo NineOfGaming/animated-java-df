@@ -1,14 +1,17 @@
 import type { IBlueprintDisplayEntityConfigJSON } from '../../formats/blueprint'
 import { DisplayEntityConfig } from '../../nodeConfigs'
-import { IRenderedAnimation } from '../animationRenderer'
+import type { INodeTransform, IRenderedAnimation } from '../animationRenderer'
 import type { AnyRenderedNode, IRenderedRig, IRenderedVariantModel } from '../rigRenderer'
 import { CodeClientError, sendTemplatesToCodeClient } from './codeclient'
 import { textToGZip } from './compression'
-import { compressMatrix, rotateMatrix } from './dfdata'
+import { compressLocatorTransform, compressMatrix, rotateMatrix } from './dfdata'
 import type { CodeBlock, CodeTemplate } from './types'
 
 export class DFExportError extends Error {
-	constructor(message: string, public cause?: unknown) {
+	constructor(
+		message: string,
+		public cause?: unknown
+	) {
 		super(message)
 		this.name = 'DFExportError'
 	}
@@ -36,13 +39,14 @@ type RawAnimationData = Record<
 
 type RawVariantData = Record<string, string[]>
 
-type SupportedDFNodeType = 'bone' | 'text_display' | 'item_display' | 'block_display'
+type SupportedDFNodeType = 'bone' | 'text_display' | 'item_display' | 'block_display' | 'locator'
 
-const DF_EXPORTED_NODE_TYPES: ReadonlySet<AnyRenderedNode['type']> = new Set([
+const DF_EXPORTED_NODE_TYPES: ReadonlySet<SupportedDFNodeType> = new Set([
 	'bone',
 	'text_display',
 	'item_display',
 	'block_display',
+	'locator',
 ])
 
 const DF_HYPERCUBE_TYPE_BY_NODE_TYPE: Record<SupportedDFNodeType, string> = {
@@ -50,6 +54,15 @@ const DF_HYPERCUBE_TYPE_BY_NODE_TYPE: Record<SupportedDFNodeType, string> = {
 	text_display: 'text',
 	item_display: 'item',
 	block_display: 'block',
+	locator: 'locator',
+}
+
+const DF_NODE_ITEM_DISPLAY_TYPE_BY_NODE_TYPE: Record<SupportedDFNodeType, string> = {
+	bone: 'Model',
+	text_display: 'Text Display',
+	item_display: 'Item Display',
+	block_display: 'Block Display',
+	locator: 'Locator',
 }
 
 const DF_ANIMATION_NAME_PREFIX = 'animation.model.'
@@ -78,6 +91,22 @@ function makeUniqueName(baseName: string, usedNames: Set<string>): string {
 	}
 	usedNames.add(uniqueName)
 	return uniqueName
+}
+
+function isSupportedDFNodeType(type: AnyRenderedNode['type']): type is SupportedDFNodeType {
+	return DF_EXPORTED_NODE_TYPES.has(type as SupportedDFNodeType)
+}
+
+function getLocatorTransformValues(
+	transform?: INodeTransform
+): [number, number, number, number, number] {
+	return [
+		transform?.pos?.[0] ?? 0,
+		transform?.pos?.[1] ?? 0,
+		transform?.pos?.[2] ?? 0,
+		transform?.head_rot?.[0] ?? 0,
+		transform?.head_rot?.[1] ?? 0,
+	]
 }
 
 function blockMaterialToItemId(blockMaterial: string): string {
@@ -113,17 +142,6 @@ function escapeSnbtString(value: string): string {
 		.replace(/\n/g, '\\n')
 		.replace(/\r/g, '\\r')
 		.replace(/\t/g, '\\t')
-}
-
-function normalizeJsonText(rawText: string): string {
-	const trimmed = rawText.trim()
-	if (!trimmed) return JSON.stringify(' ')
-	try {
-		JSON.parse(trimmed)
-		return trimmed
-	} catch {
-		return JSON.stringify(rawText)
-	}
 }
 
 function normalizeTextTagValue(rawText: string): string {
@@ -213,6 +231,11 @@ function appendAltBooleanNodeTags(
 	return tagsWithAltValues
 }
 
+function buildNodeItemCustomNameComponent(type: SupportedDFNodeType, nodeName: string): string {
+	const label = `${DF_NODE_ITEM_DISPLAY_TYPE_BY_NODE_TYPE[type]}: ${nodeName}`
+	return `[{"text":"${escapeSnbtString(label)}","color":"#6DC7E9","italic":false}]`
+}
+
 function resolveDisplayConfigWithDefaults(
 	config?: IBlueprintDisplayEntityConfigJSON
 ): Record<string, string | number | boolean> {
@@ -284,7 +307,7 @@ function serializeNodeForDF(
 	node: AnyRenderedNode,
 	defaultVariantModel?: IRenderedVariantModel
 ): Node | undefined {
-	if (!DF_EXPORTED_NODE_TYPES.has(node.type)) {
+	if (!isSupportedDFNodeType(node.type)) {
 		return
 	}
 
@@ -345,18 +368,29 @@ function serializeNodeForDF(
 				},
 			}
 		}
+		case 'locator': {
+			const [defaultPx, defaultPy, defaultPz, defaultRx, defaultRy] =
+				getLocatorTransformValues(node.default_transform)
+			return {
+				name: node.name,
+				type: node.type,
+				data: {
+					parent: node.parent,
+					default_px: defaultPx,
+					default_py: defaultPy,
+					default_pz: defaultPz,
+					default_rx: defaultRx,
+					default_ry: defaultRy,
+				},
+			}
+		}
 		default:
 			return
 	}
 }
 
 function buildNodeItemSNBT(nodeData: Node, fallbackItemMaterial: string): string | undefined {
-	if (
-		nodeData.type !== 'bone' &&
-		nodeData.type !== 'text_display' &&
-		nodeData.type !== 'item_display' &&
-		nodeData.type !== 'block_display'
-	) {
+	if (!isSupportedDFNodeType(nodeData.type)) {
 		return
 	}
 
@@ -376,6 +410,7 @@ function buildNodeItemSNBT(nodeData: Node, fallbackItemMaterial: string): string
 
 	const components: string[] = [
 		`"minecraft:custom_data":{PublicBukkitValues:{${bukkitValues.join(',')}}}`,
+		`"minecraft:custom_name":${buildNodeItemCustomNameComponent(nodeData.type, nodeData.name)}`,
 	]
 
 	let itemId = ensureNamespacedId(fallbackItemMaterial)
@@ -393,11 +428,7 @@ function buildNodeItemSNBT(nodeData: Node, fallbackItemMaterial: string): string
 			break
 		}
 		case 'text_display': {
-			itemId = 'minecraft:name_tag'
-			const textRaw =
-				typeof nodeData.data?.text === 'string' ? nodeData.data.text : JSON.stringify(' ')
-			const normalizedText = normalizeJsonText(textRaw)
-			components.push(`"minecraft:custom_name":"${escapeSnbtString(normalizedText)}"`)
+			itemId = 'minecraft:book'
 			break
 		}
 		case 'item_display': {
@@ -417,6 +448,10 @@ function buildNodeItemSNBT(nodeData: Node, fallbackItemMaterial: string): string
 				typeof material === 'string' && material.length > 0
 					? blockMaterialToItemId(material)
 					: 'minecraft:stone'
+			break
+		}
+		case 'locator': {
+			itemId = 'minecraft:paper'
 			break
 		}
 	}
@@ -472,20 +507,28 @@ export async function exportJSONDF(options: {
 		}
 
 		const cachedAnimationData: Record<string, string[]> = {}
-		const lastKnownMatrixByNode: Record<string, string | undefined> = {}
+		const lastKnownAnimationDataByNode: Record<string, string | undefined> = {}
 		for (const frame of animation.frames) {
 			for (const nodeUuid of Object.keys(nodes)) {
 				const nodeTransform = frame.node_transforms[nodeUuid]
 				if (nodeTransform) {
-					const matrix = nodeTransform.matrix.elements
-					lastKnownMatrixByNode[nodeUuid] = compressMatrix(rotateMatrix(matrix))
+					if (nodes[nodeUuid].type === 'locator') {
+						lastKnownAnimationDataByNode[nodeUuid] = compressLocatorTransform(
+							getLocatorTransformValues(nodeTransform)
+						)
+					} else {
+						const matrix = nodeTransform.matrix.elements
+						lastKnownAnimationDataByNode[nodeUuid] = compressMatrix(
+							rotateMatrix(matrix)
+						)
+					}
 				}
 
-				const matrixForFrame = lastKnownMatrixByNode[nodeUuid]
-				if (!matrixForFrame) continue
+				const animationDataForFrame = lastKnownAnimationDataByNode[nodeUuid]
+				if (!animationDataForFrame) continue
 
 				cachedAnimationData[nodeUuid] = cachedAnimationData[nodeUuid] || []
-				cachedAnimationData[nodeUuid].push(matrixForFrame)
+				cachedAnimationData[nodeUuid].push(animationDataForFrame)
 			}
 		}
 

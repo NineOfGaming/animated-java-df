@@ -8,38 +8,45 @@ export function rotateMatrix(matrix: number[]): number[] {
     ]
 }
 
+function compressNumberList(values: number[]): string {
+	const compressed = []
+	for (const element of values) {
+		const v = Math.round(element * 1000)
+
+		const symmetricModulo = (n: number, m: number) => {
+			let remainder = n % m
+			if (remainder >= m / 2) {
+				remainder -= m
+			} else if (remainder < -m / 2) {
+				remainder += m
+			}
+			return remainder
+		}
+
+		const x0 = symmetricModulo(v, 128)
+
+		let remainingV = (v - x0) / 128
+		const x1 = symmetricModulo(remainingV, 128)
+
+		remainingV = (remainingV - x1) / 128
+		const x2 = remainingV
+
+		const b0 = x0 + 64
+		const b1 = x1 + 64
+		const b2 = x2 + 64
+
+		const str = String.fromCharCode(b0, b1, b2)
+		compressed.push(str)
+	}
+
+	return compressed.join('')
+}
+
 export function compressMatrix(matrix: number[]): string {
+	return compressNumberList(matrix)
+}
 
-    const compressed = []
-    for (const element of matrix) {
-        const v = Math.round(element * 1000)
-
-        const symmetricModulo = (n: number, m: number) => {
-            let remainder = n % m
-            if (remainder >= m / 2) {
-                remainder -= m
-            } else if (remainder < -m / 2) {
-                remainder += m
-            }
-            return remainder
-        }
-    
-        const x0 = symmetricModulo(v, 128)
-    
-        let remainingV = (v - x0) / 128
-        const x1 = symmetricModulo(remainingV, 128)
-    
-        remainingV = (remainingV - x1) / 128
-        const x2 = remainingV
-    
-        const b0 = x0 + 64
-        const b1 = x1 + 64
-        const b2 = x2 + 64
-
-        const str = String.fromCharCode(b0, b1, b2)
-        compressed.push(str)
-    }
-
-    return compressed.join('')
+export function compressLocatorTransform(transform: number[]): string {
+	return compressNumberList(transform)
 }
 
