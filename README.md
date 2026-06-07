@@ -98,6 +98,9 @@ This repository is a fork of Animated Java with support for exporting projects t
 > `rig.spawn` automatically applies animation `default` at tick `0` after spawning.  
 > If you need lower-level control, `rig.load_animation(...)` and `rig.decodeMatrices(...)` are available.
 
+> [!NOTE]
+> Locator variables can be accessed via `rig.<project_name>.<instance_id>.locators.<locator_name>.location`
+
 <br/>
 
 ## Credits
