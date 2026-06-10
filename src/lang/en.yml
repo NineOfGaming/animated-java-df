@@ -40,20 +40,26 @@ animated_java:
       name: Base Templates
       tooltip:
         includes: 'Includes these templates:'
-        required_section: 'Required (%s):'
+        core_section: 'Core (%s):'
+        helpers_section: 'Helpers (%s):'
         optional_section: 'Optional (%s):'
     df_base_templates_all:
       name: Get All Templates
-    df_base_templates_required:
-      name: Get Required Templates
-      tooltip: 'Includes these required templates:'
+    df_base_templates_core:
+      name: Get Core Templates
+      tooltip: 'Includes these core templates:'
+    df_base_templates_helpers:
+      name: Get Helper Templates
+      tooltip: 'Includes these helper templates:'
     df_base_templates_optional:
       name: Get Optional Templates
       tooltip: 'Includes these optional templates:'
     df_base_templates_specific:
       name: Get Specific Template
-    df_base_templates_required_group:
-      name: Required Templates
+    df_base_templates_core_group:
+      name: Core Templates
+    df_base_templates_helpers_group:
+      name: Helper Templates
     df_base_templates_optional_group:
       name: Optional Templates
     export_debug:
@@ -940,9 +946,12 @@ animated_java:
       df_base_templates:
         set_name:
           all: DF base templates
-          required:
-            lowercase: required DF base templates
-            titlecase: Required DF base templates
+          core:
+            lowercase: core DF base templates
+            titlecase: Core DF base templates
+          helpers:
+            lowercase: helper DF base templates
+            titlecase: Helper DF base templates
           optional:
             lowercase: optional DF base templates
             titlecase: Optional DF base templates

@@ -77,9 +77,6 @@ This repository is a fork of Animated Java with support for exporting projects t
 1. Send both template sets from Blockbench.
     - `Animated Java > DiamondFire > Export` sends your project-specific init function as `rig.init.<project_name>`.
     - `Animated Java > DiamondFire > Base Templates > ...` (make sure you have enough room in your inventory)
-        - `... > Get Required Templates` sends the core helpers (`rig.spawn`, `rig.animate`, etc.).
-        - `... > Get Optional Templates` sends useful helpers (`rig.setVariant`, offset helpers, etc.).
-        - `... > Get All Templates` sends both sets at once.
 2. Initialize each model once (for example in your setup/load code).
     - Use `rig.init.rig("<project_name>")` for one model, or `rig.init.rigs(<list>)` for multiple.
 3. Spawn a rig instance.
@@ -89,8 +86,6 @@ This repository is a fork of Animated Java with support for exporting projects t
     - Use `rig.animate("<instance_id>", "<project_name>", "<animation_name>", <tick>, <interp_optional>)`.
     - `<tick>` is the current frame.
     - `<interp_optional>` should always match the amount of ticks waiting between each frame. (set to 0 to disable interpolation)
-    - Use `rig.animate.noReset(...)` when you want to keep the rig-entities selection active after animating.
-    - Use `rig.animate(...)` when you want that selection reset automatically and restore your previous selection.
 5. Removing the rig.
     - Use `rig.remove("<instance_id>")`.
 
@@ -111,8 +106,6 @@ The stack count shown on each function icon is a quick usage hint:
 
 This fork is based on [Millo5/animated-java-df](https://github.com/Millo5/animated-java-df), with the goal of being more up to date, user friendly and feature complete.
 
-<br/>
-
 ##
 
 For questions or discussion: join the [Discord server](https://discord.gg/vpWfwa28Sm).
@@ -121,7 +114,7 @@ For questions or discussion: join the [Discord server](https://discord.gg/vpWfwa
 
 ---
 
-<br/>
+<br/><br/>
 
 # ❔ What is Animated Java?
 

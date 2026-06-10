@@ -226,11 +226,46 @@ const EXPORT_DF = registerDeletableHandlerPatch({
 })
 
 const DF_BASE_TEMPLATES_ALL_ACTION_ID = 'animated_java:action/df-base-templates-all'
-const DF_BASE_TEMPLATES_REQUIRED_ACTION_ID = 'animated_java:action/df-base-templates-required'
-const DF_BASE_TEMPLATES_OPTIONAL_ACTION_ID = 'animated_java:action/df-base-templates-optional'
 
-const REQUIRED_DF_BASE_TEMPLATES = getDFBaseTemplateDefinitions('required')
-const OPTIONAL_DF_BASE_TEMPLATES = getDFBaseTemplateDefinitions('optional')
+interface DFBaseTemplateCategoryDetails {
+	category: DFBaseTemplateCategory
+	actionId: string
+	icon: string
+	nameKey: string
+	tooltipKey: string
+	sectionKey: string
+	groupNameKey: string
+}
+
+const DF_BASE_TEMPLATE_CATEGORY_DETAILS: DFBaseTemplateCategoryDetails[] = [
+	{
+		category: 'core',
+		actionId: 'animated_java:action/df-base-templates-core',
+		icon: 'check_circle',
+		nameKey: 'action.df_base_templates_core.name',
+		tooltipKey: 'action.df_base_templates_core.tooltip',
+		sectionKey: 'action.df_base_templates.tooltip.core_section',
+		groupNameKey: 'action.df_base_templates_core_group.name',
+	},
+	{
+		category: 'helpers',
+		actionId: 'animated_java:action/df-base-templates-helpers',
+		icon: 'construction',
+		nameKey: 'action.df_base_templates_helpers.name',
+		tooltipKey: 'action.df_base_templates_helpers.tooltip',
+		sectionKey: 'action.df_base_templates.tooltip.helpers_section',
+		groupNameKey: 'action.df_base_templates_helpers_group.name',
+	},
+	{
+		category: 'optional',
+		actionId: 'animated_java:action/df-base-templates-optional',
+		icon: 'extension',
+		nameKey: 'action.df_base_templates_optional.name',
+		tooltipKey: 'action.df_base_templates_optional.tooltip',
+		sectionKey: 'action.df_base_templates.tooltip.optional_section',
+		groupNameKey: 'action.df_base_templates_optional_group.name',
+	},
+]
 
 function formatDFTemplateTooltip(description: string): string {
 	return description
@@ -253,34 +288,41 @@ function buildDFTemplateSetTooltip(
 		.trim()
 }
 
+function buildDFTemplateCategoryTooltip(details: DFBaseTemplateCategoryDetails) {
+	return buildDFTemplateSetTooltip(getDFBaseTemplateDefinitions(details.category), details.tooltipKey)
+}
+
+function registerDFBaseTemplateTooltip(id: string, tooltip: string | undefined) {
+	if (!tooltip) return undefined
+
+	const key = `animated_java.df_base_templates.tooltip.${id}`
+	const languageData = Language.data as Record<string, string>
+	languageData[key] = tooltip
+	return key
+}
+
 const DF_BASE_TEMPLATES_ALL_DESCRIPTION = [
 	translate('action.df_base_templates.tooltip.includes'),
-	'',
-	translate(
-		'action.df_base_templates.tooltip.required_section',
-		String(REQUIRED_DF_BASE_TEMPLATES.length)
-	),
-	...REQUIRED_DF_BASE_TEMPLATES.map(
-		definition => `- ${definition.displayName ?? definition.templateName}`
-	),
-	'',
-	translate(
-		'action.df_base_templates.tooltip.optional_section',
-		String(OPTIONAL_DF_BASE_TEMPLATES.length)
-	),
-	...OPTIONAL_DF_BASE_TEMPLATES.map(
-		definition => `- ${definition.displayName ?? definition.templateName}`
-	),
+	...DF_BASE_TEMPLATE_CATEGORY_DETAILS.flatMap(details => {
+		const definitions = getDFBaseTemplateDefinitions(details.category)
+		return [
+			'',
+			translate(details.sectionKey, String(definitions.length)),
+			...definitions.map(definition => `- ${definition.displayName ?? definition.templateName}`),
+		]
+	}),
 ].join('\n')
 
 const DF_BASE_TEMPLATES_ALL = registerDeletableHandlerPatch({
 	id: DF_BASE_TEMPLATES_ALL_ACTION_ID,
 	create() {
+		const descriptionKey = registerDFBaseTemplateTooltip('all', DF_BASE_TEMPLATES_ALL_DESCRIPTION)
+
 		return new Blockbench.Action(DF_BASE_TEMPLATES_ALL_ACTION_ID, {
 			icon: 'all_inclusive',
 			category: 'animated_java',
 			name: `${translate('action.df_base_templates_all.name')} (${getDFBaseTemplateCount()})`,
-			description: DF_BASE_TEMPLATES_ALL_DESCRIPTION,
+			description: descriptionKey,
 			click() {
 				void exportDFBaseTemplates()
 			},
@@ -288,45 +330,27 @@ const DF_BASE_TEMPLATES_ALL = registerDeletableHandlerPatch({
 	},
 })
 
-const DF_BASE_TEMPLATES_REQUIRED = registerDeletableHandlerPatch({
-	id: DF_BASE_TEMPLATES_REQUIRED_ACTION_ID,
-	create() {
-		return new Blockbench.Action(DF_BASE_TEMPLATES_REQUIRED_ACTION_ID, {
-			icon: 'check_circle',
-			category: 'animated_java',
-			name: `${translate('action.df_base_templates_required.name')} (${getDFBaseTemplateCount(
-				'required'
-			)})`,
-			description: buildDFTemplateSetTooltip(
-				REQUIRED_DF_BASE_TEMPLATES,
-				'action.df_base_templates_required.tooltip'
-			),
-			click() {
-				void exportDFBaseTemplates('required')
-			},
-		})
-	},
-})
+const DF_BASE_TEMPLATE_CATEGORY_ACTIONS = DF_BASE_TEMPLATE_CATEGORY_DETAILS.map(details =>
+	registerDeletableHandlerPatch({
+		id: details.actionId,
+		create() {
+			const descriptionKey = registerDFBaseTemplateTooltip(
+				details.category,
+				buildDFTemplateCategoryTooltip(details)
+			)
 
-const DF_BASE_TEMPLATES_OPTIONAL = registerDeletableHandlerPatch({
-	id: DF_BASE_TEMPLATES_OPTIONAL_ACTION_ID,
-	create() {
-		return new Blockbench.Action(DF_BASE_TEMPLATES_OPTIONAL_ACTION_ID, {
-			icon: 'extension',
-			category: 'animated_java',
-			name: `${translate('action.df_base_templates_optional.name')} (${getDFBaseTemplateCount(
-				'optional'
-			)})`,
-			description: buildDFTemplateSetTooltip(
-				OPTIONAL_DF_BASE_TEMPLATES,
-				'action.df_base_templates_optional.tooltip'
-			),
-			click() {
-				void exportDFBaseTemplates('optional')
-			},
-		})
-	},
-})
+			return new Blockbench.Action(details.actionId, {
+				icon: details.icon,
+				category: 'animated_java',
+				name: `${translate(details.nameKey)} (${getDFBaseTemplateCount(details.category)})`,
+				description: descriptionKey,
+				click() {
+					void exportDFBaseTemplates(details.category)
+				},
+			})
+		},
+	})
+)
 
 function getDFTemplateActionId(definition: (typeof DF_BASE_HELPER_DEFINITIONS)[number]) {
 	return `animated_java:action/df-base-template-${definition.templateName
@@ -338,13 +362,19 @@ const DF_BASE_TEMPLATE_SPECIFIC_ACTIONS = DF_BASE_HELPER_DEFINITIONS.map(definit
 	registerDeletableHandlerPatch({
 		id: getDFTemplateActionId(definition),
 		create() {
+			const description = definition.description
+				? formatDFTemplateTooltip(definition.description)
+				: undefined
+			const descriptionKey = registerDFBaseTemplateTooltip(
+				`template.${definition.templateName}`,
+				description
+			)
+
 			return new Blockbench.Action(getDFTemplateActionId(definition), {
 				icon: 'description',
 				category: 'animated_java',
 				name: definition.displayName ?? definition.templateName,
-				description: definition.description
-					? formatDFTemplateTooltip(definition.description)
-					: undefined,
+				description: descriptionKey,
 				click() {
 					void exportDFBaseTemplate(definition.templateName)
 				},
@@ -354,6 +384,9 @@ const DF_BASE_TEMPLATE_SPECIFIC_ACTIONS = DF_BASE_HELPER_DEFINITIONS.map(definit
 )
 
 function createDFBaseTemplatesSpecificCategorySubMenu(category: DFBaseTemplateCategory) {
+	const details = DF_BASE_TEMPLATE_CATEGORY_DETAILS.find(details => details.category === category)
+	if (details == undefined) return
+
 	const categoryActions = DF_BASE_HELPER_DEFINITIONS.filter(
 		definition => definition.category === category
 	).map(definition =>
@@ -364,37 +397,32 @@ function createDFBaseTemplatesSpecificCategorySubMenu(category: DFBaseTemplateCa
 
 	return {
 		id: `animated_java:submenu/df/base_templates_specific/${category}`,
-		name: translate(
-			category === 'required'
-				? 'action.df_base_templates_required_group.name'
-				: 'action.df_base_templates_optional_group.name'
-		),
-		icon: category === 'required' ? 'check_circle' : 'extension',
+		name: translate(details.groupNameKey),
+		icon: details.icon,
+		description: buildDFTemplateCategoryTooltip(details),
 		searchable: false,
 		children: categoryActions as Action[],
 	}
 }
 
 function createDFBaseTemplatesSpecificSubMenu() {
-	const requiredSubMenu = createDFBaseTemplatesSpecificCategorySubMenu('required')
-	const optionalSubMenu = createDFBaseTemplatesSpecificCategorySubMenu('optional')
-	if (requiredSubMenu == undefined || optionalSubMenu == undefined) return
+	const categorySubMenus = DF_BASE_TEMPLATE_CATEGORY_DETAILS.map(details =>
+		createDFBaseTemplatesSpecificCategorySubMenu(details.category)
+	)
+	if (categorySubMenus.some(subMenu => subMenu == undefined)) return
 
 	return {
 		id: 'animated_java:submenu/df/base_templates_specific',
 		name: translate('action.df_base_templates_specific.name'),
 		icon: 'description',
 		searchable: false,
-		children: [requiredSubMenu, optionalSubMenu],
+		children: categorySubMenus,
 	}
 }
 
 function createDFBaseTemplatesSubMenu() {
-	if (
-		DF_BASE_TEMPLATES_ALL.get() == undefined ||
-		DF_BASE_TEMPLATES_REQUIRED.get() == undefined ||
-		DF_BASE_TEMPLATES_OPTIONAL.get() == undefined
-	)
+	const categoryActions = DF_BASE_TEMPLATE_CATEGORY_ACTIONS.map(action => action.get())
+	if (DF_BASE_TEMPLATES_ALL.get() == undefined || categoryActions.some(action => action == undefined))
 		return
 
 	const specificSubMenu = createDFBaseTemplatesSpecificSubMenu()
@@ -405,12 +433,7 @@ function createDFBaseTemplatesSubMenu() {
 		name: translate('action.df_base_templates.name'),
 		icon: 'construction',
 		searchable: false,
-		children: [
-			DF_BASE_TEMPLATES_ALL.get(),
-			DF_BASE_TEMPLATES_REQUIRED.get(),
-			DF_BASE_TEMPLATES_OPTIONAL.get(),
-			specificSubMenu,
-		],
+		children: [DF_BASE_TEMPLATES_ALL.get(), ...(categoryActions as Action[]), specificSubMenu],
 	}
 }
 
@@ -444,8 +467,7 @@ registerDeletableHandlerPatch({
 		`animated_java:action/export`,
 		`animated_java:action/export-df`,
 		DF_BASE_TEMPLATES_ALL_ACTION_ID,
-		DF_BASE_TEMPLATES_REQUIRED_ACTION_ID,
-		DF_BASE_TEMPLATES_OPTIONAL_ACTION_ID,
+		...DF_BASE_TEMPLATE_CATEGORY_DETAILS.map(details => details.actionId),
 		...DF_BASE_HELPER_DEFINITIONS.map(getDFTemplateActionId),
 	],
 	create() {
