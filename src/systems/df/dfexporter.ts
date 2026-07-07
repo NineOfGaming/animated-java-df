@@ -37,9 +37,13 @@ type RawAnimationData = Record<
 	}
 >
 
-type RawVariantData = Record<string, string[]>
+type RawVariantData = Record<string, Node[]>
 
 type SupportedDFNodeType = 'bone' | 'text_display' | 'item_display' | 'block_display' | 'locator'
+type SupportedDFDisplayNode = Extract<
+	AnyRenderedNode,
+	{ type: 'bone' | 'text_display' | 'item_display' | 'block_display' }
+>
 
 const DF_EXPORTED_NODE_TYPES: ReadonlySet<SupportedDFNodeType> = new Set([
 	'bone',
@@ -244,7 +248,8 @@ function resolveDisplayConfigWithDefaults(
 		on_apply_function: resolved.onApplyFunction,
 		billboard: resolved.billboard,
 		override_brightness: resolved.overrideBrightness,
-		brightness_override: resolved.brightnessOverride,
+		sky_brightness: resolved.skyBrightness,
+		block_brightness: resolved.blockBrightness,
 		enchanted: resolved.enchanted,
 		glowing: resolved.glowing,
 		override_glow_color: resolved.overrideGlowColor,
@@ -267,7 +272,8 @@ function resolveVariantDisplayConfigWithDefaults(
 		on_apply_function: resolved.onApplyFunction,
 		billboard: resolved.billboard,
 		override_brightness: resolved.overrideBrightness,
-		brightness_override: resolved.brightnessOverride,
+		sky_brightness: resolved.skyBrightness,
+		block_brightness: resolved.blockBrightness,
 		enchanted: resolved.enchanted,
 		glowing: resolved.glowing,
 		override_glow_color: resolved.overrideGlowColor,
@@ -279,33 +285,23 @@ function resolveVariantDisplayConfigWithDefaults(
 }
 
 function serializeDisplayNodeCommon(
-	node: Extract<
-		AnyRenderedNode,
-		{ type: 'bone' | 'text_display' | 'item_display' | 'block_display' }
-	>
-): Record<string, unknown> {
-	const defaultConfig = resolveDisplayConfigWithDefaults(node.configs?.default)
-	const variantConfigs = Object.fromEntries(
-		Object.entries(node.configs?.variants ?? {}).map(([variantId, variantConfig]) => {
-			return [
-				variantId,
-				resolveVariantDisplayConfigWithDefaults(node.configs?.default, variantConfig),
-			]
-		})
+	node: SupportedDFDisplayNode,
+	displayConfig: Record<string, string | number | boolean> = resolveDisplayConfigWithDefaults(
+		node.configs?.default
 	)
-
+): Record<string, unknown> {
 	return {
 		storage_name: node.storage_name,
 		parent: node.parent,
 		base_scale: node.base_scale,
-		...defaultConfig,
-		...(Object.keys(variantConfigs).length > 0 ? { variant_configs: variantConfigs } : {}),
+		...displayConfig,
 	}
 }
 
 function serializeNodeForDF(
 	node: AnyRenderedNode,
-	defaultVariantModel?: IRenderedVariantModel
+	defaultVariantModel?: IRenderedVariantModel,
+	displayConfig?: Record<string, string | number | boolean>
 ): Node | undefined {
 	if (!isSupportedDFNodeType(node.type)) {
 		return
@@ -318,7 +314,7 @@ function serializeNodeForDF(
 				name: node.name,
 				type: node.type,
 				data: {
-					...serializeDisplayNodeCommon(node),
+					...serializeDisplayNodeCommon(node, displayConfig),
 					material: ensureNamespacedId(Project!.animated_java.display_item),
 					item_display: 'head',
 					item_model: defaultVariantModel.item_model,
@@ -330,7 +326,7 @@ function serializeNodeForDF(
 				name: node.name,
 				type: node.type,
 				data: {
-					...serializeDisplayNodeCommon(node),
+					...serializeDisplayNodeCommon(node, displayConfig),
 					text: normalizeTextTagValue(node.text),
 					line_width: node.line_width,
 					background_color: node.background_color,
@@ -347,7 +343,7 @@ function serializeNodeForDF(
 				name: node.name,
 				type: node.type,
 				data: {
-					...serializeDisplayNodeCommon(node),
+					...serializeDisplayNodeCommon(node, displayConfig),
 					material: ensureNamespacedId(node.item || 'minecraft:stone'),
 					item_display: node.item_display,
 				},
@@ -360,7 +356,7 @@ function serializeNodeForDF(
 				name: node.name,
 				type: node.type,
 				data: {
-					...serializeDisplayNodeCommon(node),
+					...serializeDisplayNodeCommon(node, displayConfig),
 					material: blockMaterial,
 					...(parsedBlockMaterial.states
 						? { block_states: parsedBlockMaterial.states }
@@ -387,6 +383,15 @@ function serializeNodeForDF(
 		default:
 			return
 	}
+}
+
+function isSupportedDFDisplayNode(node: AnyRenderedNode): node is SupportedDFDisplayNode {
+	return (
+		node.type === 'bone' ||
+		node.type === 'text_display' ||
+		node.type === 'item_display' ||
+		node.type === 'block_display'
+	)
 }
 
 function buildNodeItemSNBT(nodeData: Node, fallbackItemMaterial: string): string | undefined {
@@ -487,13 +492,39 @@ export async function exportJSONDF(options: {
 	const animationData: RawAnimationData = {}
 	const usedAnimationNames = new Set<string>()
 
-	const variantData: RawVariantData = {}
+	const variantAffectedNodeUuids = new Set<string>()
 	for (const variant of Object.values(rig.variants)) {
 		if (variant.is_default) continue
 
-		const variantNodes = Object.keys(variant.models)
-			.map(nodeUuid => nodes[nodeUuid]?.name)
-			.filter((nodeName): nodeName is string => Boolean(nodeName))
+		for (const [nodeUuid, node] of Object.entries(rig.nodes)) {
+			if (!isSupportedDFDisplayNode(node)) continue
+			if (!nodes[nodeUuid]) continue
+
+			const hasModelOverride = variant.models[nodeUuid] !== undefined
+			const variantConfig = node.configs?.variants?.[variant.uuid]
+			if (hasModelOverride || variantConfig) variantAffectedNodeUuids.add(nodeUuid)
+		}
+	}
+
+	const variantData: RawVariantData = {}
+	for (const variant of Object.values(rig.variants)) {
+		if (variant.is_default) continue
+		const variantNodes: Node[] = []
+		for (const nodeUuid of variantAffectedNodeUuids) {
+			const node = rig.nodes[nodeUuid]
+			if (!isSupportedDFDisplayNode(node)) continue
+
+			const displayConfig = resolveVariantDisplayConfigWithDefaults(
+				node.configs?.default,
+				node.configs?.variants?.[variant.uuid]
+			)
+			const renderedVariantNode = serializeNodeForDF(
+				node,
+				defaultVariant?.models[nodeUuid],
+				displayConfig
+			)
+			if (renderedVariantNode) variantNodes.push(renderedVariantNode)
+		}
 
 		variantData[variant.name] = variantNodes
 	}
@@ -772,8 +803,8 @@ function buildCodeTemplate(
 		}
 
 		// add node data
-		for (const nodeName of variant) {
-			if (variantBlock.args!.items!.length + 2 > slotLimit) {
+		for (const nodeData of variant) {
+			if (variantBlock.args!.items!.length + 1 > slotLimit) {
 				// push current block and start a new one
 				template.blocks.push(variantBlock)
 				variantBlock = {
@@ -790,12 +821,22 @@ function buildCodeTemplate(
 					},
 				}
 			}
+			const itemSnbt = buildNodeItemSNBT(nodeData, templateData.item_material)
+			if (!itemSnbt) continue
+
 			variantBlock.args!.items!.push({
-				item: { id: 'txt', data: { name: nodeName } },
+				item: {
+					id: 'item',
+					data: {
+						item: itemSnbt,
+					},
+				},
 				slot: variantBlock.args!.items!.length,
 			})
 		}
-		if (variantBlock.args!.items!.length > 1) template.blocks.push(variantBlock)
+		if (variantBlock.action === 'CreateList' || variantBlock.args!.items!.length > 1) {
+			template.blocks.push(variantBlock)
+		}
 
 		const setDictValueBlock: CodeBlock = {
 			id: 'block',
