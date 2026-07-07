@@ -1,3 +1,4 @@
+import { injectComponent } from 'svelte-patching-tools'
 import { SvelteDialogSidebar } from 'svelte-patching-tools/blockbench'
 import { updateRotationConstraints } from '../../formats/blueprint'
 import {
@@ -7,7 +8,10 @@ import {
 	OPEN_DOCUMENTATION,
 } from '../../interface/animatedJavaBarItem'
 import { updateAllCubeOutlines } from '../../mods/cube'
+import { VanillaBlockDisplay } from '../../outliner/vanillaBlockDisplay'
+import { VanillaItemDisplay } from '../../outliner/vanillaItemDisplay'
 import { createScopedTranslator } from '../../util/lang'
+import AdsComponent from './blueprintSettingsAds.svelte'
 import FooterComponent from './footer.svelte'
 import DatapackComponent from './pages/datapack.svelte'
 import EventFunctionsComponent from './pages/eventFunctions.svelte'
@@ -80,7 +84,16 @@ export function openBlueprintSettings() {
 		defaultPage: 'general',
 		disableKeybinds: true,
 		buttons: [tl('dialog.close')],
+		onOpen() {
+			injectComponent({
+				component: AdsComponent,
+				elementSelector: () => dialog.object,
+			})
+		},
 		onClose: () => {
+			VanillaBlockDisplay.forceUpdateAll()
+			VanillaItemDisplay.forceUpdateAll()
+			VanillaItemDisplay.forceUpdateAll()
 			updateRotationConstraints()
 			updateAllCubeOutlines()
 			Canvas.updateAll()
