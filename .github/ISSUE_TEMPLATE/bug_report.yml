@@ -111,6 +111,15 @@ body:
         Provide details about your system and setup to help diagnose the issue.
 
   - type: input
+    id: mc-version
+    attributes:
+      label: 🟩 Minecraft Version
+      description: The version of Minecraft you're using.
+      placeholder: E.g. 1.20.4, 26.1.1
+    validations:
+      required: true
+
+  - type: input
     id: bb-version
     attributes:
       label: 🟦 Blockbench Version

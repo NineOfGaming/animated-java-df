@@ -5,6 +5,7 @@ import {
 	PROGRESS_DESCRIPTION,
 } from '../dialogs/exportProgress/exportProgress'
 import { BONE_INTERPOLATION_ENABLED } from '../mods/boneAnimatorMod'
+import { Interaction } from '../outliner/interaction'
 import { TextDisplay } from '../outliner/textDisplay'
 import { VanillaBlockDisplay } from '../outliner/vanillaBlockDisplay'
 import { VanillaItemDisplay } from '../outliner/vanillaItemDisplay'
@@ -13,14 +14,18 @@ import { eulerFromQuaternion, roundToNth, scrubUndefined } from '../util/misc'
 import type { AnyRenderedNode, IRenderedRig } from './rigRenderer'
 import { sleepForAnimationFrame } from './util'
 
+function getMainPreview() {
+	return Preview.all.find(p => p.id === 'main')
+}
+
 export function correctSceneAngle() {
-	main_preview.controls.rotateLeft(Math.PI)
-	scene.setRotationFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI)
+	getMainPreview()?.controls.rotateLeft(Math.PI)
+	Canvas.scene.setRotationFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI)
 }
 
 export function restoreSceneAngle() {
-	main_preview.controls.rotateLeft(-Math.PI)
-	scene.setRotationFromAxisAngle(new THREE.Vector3(0, 1, 0), 0)
+	getMainPreview()?.controls.rotateLeft(-Math.PI)
+	Canvas.scene.setRotationFromAxisAngle(new THREE.Vector3(0, 1, 0), 0)
 }
 
 function getNodeMatrix(node: OutlinerElement, scale: number) {
@@ -197,6 +202,7 @@ export function getFrame(
 				lastFrameCache.set(uuid, { matrix: transform.matrix, keyframe })
 				break
 			}
+			case 'interaction':
 			case 'locator': {
 				transform.matrix = getNodeMatrix(outlinerNode, 1)
 				// // Only add the frame if the matrix has changed, or this is the first frame
@@ -216,7 +222,8 @@ export function getFrame(
 				// lastFrameCache.set(uuid, { matrix, keyframe })
 				break
 			}
-			case 'interaction':
+			case 'null_object':
+				updatePreview(animation, time)
 			case 'camera':
 			case 'struct': {
 				transform.matrix = getNodeMatrix(outlinerNode, 1)
@@ -296,9 +303,8 @@ export function updatePreview(animation: _Animation, time: number) {
 		animation.getBoneAnimator(node)!.displayFrame()
 	}
 	Animator.resetLastValues()
-	Canvas.scene.updateMatrixWorld()
+	Canvas.scene.updateMatrixWorld(true)
 	if (animation.effects) animation.effects.displayFrame()
-	// Blockbench.dispatchEvent('display_animation_frame')
 }
 
 function renderAnimation(animation: _Animation, rig: IRenderedRig) {
@@ -318,6 +324,7 @@ function renderAnimation(animation: _Animation, rig: IRenderedRig) {
 
 	for (let time = 0; time <= animation.length; time = roundToNth(time + 0.05, 20)) {
 		updatePreview(animation, time)
+		updatePreview(animation, time) // IK doesn't work unless I call this twice for some reason...
 		const frame: IRenderedFrame = getFrame(animation, rig.nodes, time)
 		Object.keys(frame.node_transforms).forEach(n => includedNodes.add(n))
 		rendered.frames.push(frame)
@@ -365,9 +372,10 @@ export function hashAnimations(animations: IRenderedAnimation[]) {
 
 export function getAnimatableNodes(): OutlinerElement[] {
 	return [
+		...NullObject.all,
 		...Group.all,
 		...Locator.all,
-		...BoundingBox.all,
+		...Interaction.all,
 		...TextDisplay.all,
 		...VanillaBlockDisplay.all,
 		...VanillaItemDisplay.all,
