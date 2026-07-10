@@ -284,6 +284,15 @@ const DF_BASE_TEMPLATE_CATEGORY_DETAILS: DFBaseTemplateCategoryDetails[] = [
 		groupNameKey: 'action.df_base_templates_cameras_group.name',
 	},
 	{
+		category: 'interactions',
+		actionId: 'animated_java:action/df-base-templates-interactions',
+		icon: 'touch_app',
+		nameKey: 'action.df_base_templates_interactions.name',
+		tooltipKey: 'action.df_base_templates_interactions.tooltip',
+		sectionKey: 'action.df_base_templates.tooltip.interactions_section',
+		groupNameKey: 'action.df_base_templates_interactions_group.name',
+	},
+	{
 		category: 'offsets',
 		actionId: 'animated_java:action/df-base-templates-offsets',
 		icon: 'extension',

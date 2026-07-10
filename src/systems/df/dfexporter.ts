@@ -1,5 +1,8 @@
-import type { IBlueprintDisplayEntityConfigJSON } from '../../formats/blueprint'
-import { DisplayEntityConfig } from '../../nodeConfigs'
+import type {
+	IBlueprintDisplayEntityConfigJSON,
+	IBlueprintInteractionConfigJSON,
+} from '../../formats/blueprint'
+import { DisplayEntityConfig, InteractionConfig } from '../../nodeConfigs'
 import type { INodeTransform, IRenderedAnimation } from '../animationRenderer'
 import type { AnyRenderedNode, IRenderedRig, IRenderedVariantModel } from '../rigRenderer'
 import { CodeClientError, sendTemplatesToCodeClient } from './codeclient'
@@ -46,6 +49,7 @@ type SupportedDFNodeType =
 	| 'block_display'
 	| 'locator'
 	| 'camera'
+	| 'interaction'
 type SupportedDFDisplayNode = Extract<
 	AnyRenderedNode,
 	{ type: 'bone' | 'text_display' | 'item_display' | 'block_display' }
@@ -58,6 +62,7 @@ const DF_EXPORTED_NODE_TYPES: ReadonlySet<SupportedDFNodeType> = new Set([
 	'block_display',
 	'locator',
 	'camera',
+	'interaction',
 ])
 
 const DF_HYPERCUBE_TYPE_BY_NODE_TYPE: Record<SupportedDFNodeType, string> = {
@@ -67,6 +72,7 @@ const DF_HYPERCUBE_TYPE_BY_NODE_TYPE: Record<SupportedDFNodeType, string> = {
 	block_display: 'block',
 	locator: 'locator',
 	camera: 'camera',
+	interaction: 'interaction',
 }
 
 const DF_NODE_ITEM_DISPLAY_TYPE_BY_NODE_TYPE: Record<SupportedDFNodeType, string> = {
@@ -76,6 +82,7 @@ const DF_NODE_ITEM_DISPLAY_TYPE_BY_NODE_TYPE: Record<SupportedDFNodeType, string
 	block_display: 'Block Display',
 	locator: 'Locator',
 	camera: 'Camera',
+	interaction: 'Interaction',
 }
 
 const DF_ANIMATION_NAME_PREFIX = 'animation.model.'
@@ -293,6 +300,15 @@ function resolveVariantDisplayConfigWithDefaults(
 	}
 }
 
+function resolveInteractionConfigWithDefaults(
+	config?: IBlueprintInteractionConfigJSON
+): Record<string, string | number | boolean> {
+	const resolved = InteractionConfig.fromJSON(config ?? {})
+	return {
+		response: resolved.response,
+	}
+}
+
 function serializeDisplayNodeCommon(
 	node: SupportedDFDisplayNode,
 	displayConfig: Record<string, string | number | boolean> = resolveDisplayConfigWithDefaults(
@@ -405,6 +421,25 @@ function serializeNodeForDF(
 				},
 			}
 		}
+		case 'interaction': {
+			const [defaultPx, defaultPy, defaultPz, defaultRx, defaultRy] =
+				getLocatorTransformValues(node.default_transform)
+			return {
+				name: node.name,
+				type: node.type,
+				data: {
+					parent: node.parent,
+					default_px: defaultPx,
+					default_py: defaultPy,
+					default_pz: defaultPz,
+					default_rx: defaultRx,
+					default_ry: defaultRy,
+					width: node.width,
+					height: node.height,
+					...resolveInteractionConfigWithDefaults(node.config),
+				},
+			}
+		}
 		default:
 			return
 	}
@@ -486,6 +521,10 @@ function buildNodeItemSNBT(nodeData: Node, fallbackItemMaterial: string): string
 		}
 		case 'camera': {
 			itemId = 'minecraft:spyglass'
+			break
+		}
+		case 'interaction': {
+			itemId = 'minecraft:tripwire_hook'
 			break
 		}
 	}
@@ -572,7 +611,11 @@ export async function exportJSONDF(options: {
 			for (const nodeUuid of Object.keys(nodes)) {
 				const nodeTransform = frame.node_transforms[nodeUuid]
 				if (nodeTransform) {
-					if (nodes[nodeUuid].type === 'locator' || nodes[nodeUuid].type === 'camera') {
+					if (
+						nodes[nodeUuid].type === 'locator' ||
+						nodes[nodeUuid].type === 'camera' ||
+						nodes[nodeUuid].type === 'interaction'
+					) {
 						lastKnownAnimationDataByNode[nodeUuid] = compressLocatorTransform(
 							getLocatorTransformValues(nodeTransform)
 						)

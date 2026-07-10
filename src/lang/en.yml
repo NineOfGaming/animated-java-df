@@ -49,6 +49,7 @@ animated_java:
         variants_section: 'Variants (%s):'
         locators_section: 'Locators (%s):'
         cameras_section: 'Cameras (%s):'
+        interactions_section: 'Interactions (%s):'
         offsets_section: 'Offsets (%s):'
     df_base_templates_all:
       name: Get All Templates
@@ -67,6 +68,9 @@ animated_java:
     df_base_templates_cameras:
       name: Get Camera Templates
       tooltip: 'Includes these camera templates:'
+    df_base_templates_interactions:
+      name: Get Interaction Templates
+      tooltip: 'Includes these interaction templates:'
     df_base_templates_offsets:
       name: Get Offset Templates
       tooltip: 'Includes these offset templates:'
@@ -82,6 +86,8 @@ animated_java:
       name: Locator Templates
     df_base_templates_cameras_group:
       name: Camera Templates
+    df_base_templates_interactions_group:
+      name: Interaction Templates
     df_base_templates_offsets_group:
       name: Offset Templates
     export_debug:
@@ -1058,6 +1064,9 @@ animated_java:
           cameras:
             lowercase: camera DF base templates
             titlecase: Camera DF base templates
+          interactions:
+            lowercase: interaction DF base templates
+            titlecase: Interaction DF base templates
           offsets:
             lowercase: offset DF base templates
             titlecase: Offset DF base templates
