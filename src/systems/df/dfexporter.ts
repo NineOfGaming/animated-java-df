@@ -39,7 +39,13 @@ type RawAnimationData = Record<
 
 type RawVariantData = Record<string, Node[]>
 
-type SupportedDFNodeType = 'bone' | 'text_display' | 'item_display' | 'block_display' | 'locator'
+type SupportedDFNodeType =
+	| 'bone'
+	| 'text_display'
+	| 'item_display'
+	| 'block_display'
+	| 'locator'
+	| 'camera'
 type SupportedDFDisplayNode = Extract<
 	AnyRenderedNode,
 	{ type: 'bone' | 'text_display' | 'item_display' | 'block_display' }
@@ -51,6 +57,7 @@ const DF_EXPORTED_NODE_TYPES: ReadonlySet<SupportedDFNodeType> = new Set([
 	'item_display',
 	'block_display',
 	'locator',
+	'camera',
 ])
 
 const DF_HYPERCUBE_TYPE_BY_NODE_TYPE: Record<SupportedDFNodeType, string> = {
@@ -59,6 +66,7 @@ const DF_HYPERCUBE_TYPE_BY_NODE_TYPE: Record<SupportedDFNodeType, string> = {
 	item_display: 'item',
 	block_display: 'block',
 	locator: 'locator',
+	camera: 'camera',
 }
 
 const DF_NODE_ITEM_DISPLAY_TYPE_BY_NODE_TYPE: Record<SupportedDFNodeType, string> = {
@@ -67,6 +75,7 @@ const DF_NODE_ITEM_DISPLAY_TYPE_BY_NODE_TYPE: Record<SupportedDFNodeType, string
 	item_display: 'Item Display',
 	block_display: 'Block Display',
 	locator: 'Locator',
+	camera: 'Camera',
 }
 
 const DF_ANIMATION_NAME_PREFIX = 'animation.model.'
@@ -380,6 +389,22 @@ function serializeNodeForDF(
 				},
 			}
 		}
+		case 'camera': {
+			const [defaultPx, defaultPy, defaultPz, defaultRx, defaultRy] =
+				getLocatorTransformValues(node.default_transform)
+			return {
+				name: node.name,
+				type: node.type,
+				data: {
+					parent: node.parent,
+					default_px: defaultPx,
+					default_py: defaultPy,
+					default_pz: defaultPz,
+					default_rx: defaultRx,
+					default_ry: defaultRy,
+				},
+			}
+		}
 		default:
 			return
 	}
@@ -457,6 +482,10 @@ function buildNodeItemSNBT(nodeData: Node, fallbackItemMaterial: string): string
 		}
 		case 'locator': {
 			itemId = 'minecraft:paper'
+			break
+		}
+		case 'camera': {
+			itemId = 'minecraft:spyglass'
 			break
 		}
 	}
@@ -543,7 +572,7 @@ export async function exportJSONDF(options: {
 			for (const nodeUuid of Object.keys(nodes)) {
 				const nodeTransform = frame.node_transforms[nodeUuid]
 				if (nodeTransform) {
-					if (nodes[nodeUuid].type === 'locator') {
+					if (nodes[nodeUuid].type === 'locator' || nodes[nodeUuid].type === 'camera') {
 						lastKnownAnimationDataByNode[nodeUuid] = compressLocatorTransform(
 							getLocatorTransformValues(nodeTransform)
 						)

@@ -46,7 +46,10 @@ animated_java:
         includes: 'Includes these templates:'
         core_section: 'Core (%s):'
         helpers_section: 'Helpers (%s):'
-        optional_section: 'Optional (%s):'
+        variants_section: 'Variants (%s):'
+        locators_section: 'Locators (%s):'
+        cameras_section: 'Cameras (%s):'
+        offsets_section: 'Offsets (%s):'
     df_base_templates_all:
       name: Get All Templates
     df_base_templates_core:
@@ -55,17 +58,32 @@ animated_java:
     df_base_templates_helpers:
       name: Get Helper Templates
       tooltip: 'Includes these helper templates:'
-    df_base_templates_optional:
-      name: Get Optional Templates
-      tooltip: 'Includes these optional templates:'
+    df_base_templates_variants:
+      name: Get Variant Templates
+      tooltip: 'Includes these variant templates:'
+    df_base_templates_locators:
+      name: Get Locator Templates
+      tooltip: 'Includes these locator templates:'
+    df_base_templates_cameras:
+      name: Get Camera Templates
+      tooltip: 'Includes these camera templates:'
+    df_base_templates_offsets:
+      name: Get Offset Templates
+      tooltip: 'Includes these offset templates:'
     df_base_templates_specific:
       name: Get Specific Template
     df_base_templates_core_group:
       name: Core Templates
     df_base_templates_helpers_group:
       name: Helper Templates
-    df_base_templates_optional_group:
-      name: Optional Templates
+    df_base_templates_variants_group:
+      name: Variant Templates
+    df_base_templates_locators_group:
+      name: Locator Templates
+    df_base_templates_cameras_group:
+      name: Camera Templates
+    df_base_templates_offsets_group:
+      name: Offset Templates
     export_debug:
       name: Export (Debug)
     export_all:
@@ -1031,9 +1049,18 @@ animated_java:
           helpers:
             lowercase: helper DF base templates
             titlecase: Helper DF base templates
-          optional:
-            lowercase: optional DF base templates
-            titlecase: Optional DF base templates
+          variants:
+            lowercase: variant DF base templates
+            titlecase: Variant DF base templates
+          locators:
+            lowercase: locator DF base templates
+            titlecase: Locator DF base templates
+          cameras:
+            lowercase: camera DF base templates
+            titlecase: Camera DF base templates
+          offsets:
+            lowercase: offset DF base templates
+            titlecase: Offset DF base templates
         template_singular: template
         template_plural: templates
         sending: Sending %s %s to CodeClient...
