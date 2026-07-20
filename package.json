@@ -5,7 +5,7 @@
 	"icon": "icon.svg",
 	"description": "Effortlessly craft complex animations for Minecraft: Java Edition",
 	"version": "1.10.2",
-	"fork_version": "6.0.0",
+	"fork_version": "6.0.1",
 	"min_blockbench_version": "5.1.4",
 	"variant": "desktop",
 	"tags": [
