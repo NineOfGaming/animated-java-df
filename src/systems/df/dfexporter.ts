@@ -8,6 +8,7 @@ import type { AnyRenderedNode, IRenderedRig, IRenderedVariantModel } from '../ri
 import { CodeClientError, sendTemplatesToCodeClient } from './codeclient'
 import { textToGZip } from './compression'
 import { compressLocatorTransform, compressMatrix, rotateMatrix } from './dfdata'
+import { jsonTextToMiniMessage } from './minimessage'
 import type { CodeBlock, CodeTemplate } from './types'
 
 export class DFExportError extends Error {
@@ -162,18 +163,6 @@ function escapeSnbtString(value: string): string {
 		.replace(/\n/g, '\\n')
 		.replace(/\r/g, '\\r')
 		.replace(/\t/g, '\\t')
-}
-
-function normalizeTextTagValue(rawText: string): string {
-	const trimmed = rawText.trim()
-	if (!trimmed) return ''
-	try {
-		const parsed = JSON.parse(trimmed)
-		if (typeof parsed === 'string') return parsed
-	} catch {
-		// keep raw text if it's not valid JSON
-	}
-	return rawText
 }
 
 function normalizeRgbHex(color: string): string {
@@ -352,7 +341,12 @@ function serializeNodeForDF(
 				type: node.type,
 				data: {
 					...serializeDisplayNodeCommon(node, displayConfig),
-					text: normalizeTextTagValue(node.text),
+					text:
+						node.mini_message ??
+						jsonTextToMiniMessage(
+							node.text,
+							Project!.animated_java.target_minecraft_version
+						),
 					line_width: node.line_width,
 					background_color: node.background_color,
 					background_color_rgb: normalizeRgbHex(node.background_color),

@@ -3,6 +3,10 @@ import { TextComponent, TextComponentParser, type TextElement } from 'book-and-q
 import { observable } from 'svelte-observable-store'
 import { PACKAGE } from '../constants'
 import { activeProjectIsBlueprintFormat } from '../formats/blueprint'
+import {
+	miniMessageToPreviewTextComponent,
+	miniMessageToTextComponent,
+} from '../systems/df/minimessage'
 import { MinecraftFont } from '../systems/minecraft/fontManager'
 import { type IDisplayEntityConfigs } from '../systems/rigRenderer'
 import EVENTS from '../util/events'
@@ -14,6 +18,7 @@ import { sanitizeOutlinerElementName } from './util'
 interface TextDisplayOptions {
 	name?: string
 	text?: string
+	textFormat?: TextDisplayTextFormat
 	position?: ArrayVector3
 	rotation?: ArrayVector3
 	scale?: ArrayVector3
@@ -24,6 +29,7 @@ interface TextDisplayOptions {
 	visibility?: boolean
 }
 export type Alignment = 'left' | 'center' | 'right'
+export type TextDisplayTextFormat = 'json' | 'minimessage'
 
 @fixClassPropertyInheritance
 export class TextDisplay extends ResizableOutlinerElement {
@@ -39,6 +45,7 @@ export class TextDisplay extends ResizableOutlinerElement {
 
 	// Properties
 	configs!: IDisplayEntityConfigs
+	textFormat!: TextDisplayTextFormat
 
 	buttons = [Outliner.buttons.export, Outliner.buttons.locked, Outliner.buttons.visibility]
 	// eslint-disable-next-line @typescript-eslint/naming-convention
@@ -214,14 +221,7 @@ export class TextDisplay extends ResizableOutlinerElement {
 	updateTextMesh() {
 		let result: TextComponent | undefined
 		try {
-			const parser = new TextComponentParser({
-				minecraftVersion: Project!.animated_java.target_minecraft_version,
-			})
-			parser.enabledFeatures &= ~(
-				TextComponentParser.FEATURES.CLICK_EVENTS |
-				TextComponentParser.FEATURES.HOVER_EVENTS
-			)
-			result = new TextComponent(parser.parse(this.text))
+			result = this.getTextComponent(Project!.animated_java.target_minecraft_version, true)
 			this.textError.set('')
 		} catch (e: any) {
 			console.error(e)
@@ -230,11 +230,32 @@ export class TextDisplay extends ResizableOutlinerElement {
 			} else {
 				this.textError.set(e.message as string)
 			}
+			if (this.textFormat === 'minimessage') {
+				result = miniMessageToPreviewTextComponent(this.text)
+			}
 		}
-		result ??= new TextComponent({ text: 'Invalid JSON Text!', color: 'red' })
+		result ??= new TextComponent({ text: 'Invalid Text!', color: 'red' })
 		void this.renderTextMesh(result).then(({ mesh, hitbox, outline }) => {
 			this.applyTextMesh(mesh, hitbox, outline)
 		})
+	}
+
+	getTextComponent(
+		minecraftVersion = Project!.animated_java.target_minecraft_version,
+		disableEvents = false
+	): TextComponent {
+		if (this.textFormat === 'minimessage') {
+			return miniMessageToTextComponent(this.text)
+		}
+
+		const parser = new TextComponentParser({ minecraftVersion })
+		if (disableEvents) {
+			parser.enabledFeatures &= ~(
+				TextComponentParser.FEATURES.CLICK_EVENTS |
+				TextComponentParser.FEATURES.HOVER_EVENTS
+			)
+		}
+		return new TextComponent(parser.parse(this.text))
 	}
 
 	private renderTextMesh(jsonText: TextComponent) {
@@ -293,6 +314,7 @@ export class TextDisplay extends ResizableOutlinerElement {
 }
 TextDisplay.prototype.icon = TextDisplay.icon
 new Property(TextDisplay, 'string', 'text', { default: '"Hello World!"' })
+new Property(TextDisplay, 'string', 'textFormat', { default: 'json' })
 new Property(TextDisplay, 'number', 'lineWidth', { default: 200 })
 new Property(TextDisplay, 'string', 'backgroundColor', { default: '#00000040' })
 new Property(TextDisplay, 'string', 'align', { default: 'center' })
@@ -481,7 +503,10 @@ export const CREATE_ACTION = registerDeletableHandlerPatch({
 			click() {
 				Undo.initEdit({ outliner: true, elements: [], selection: true })
 
-				const textDisplay = new TextDisplay({}).init()
+				const textDisplay = new TextDisplay({
+					text: 'Hello World!',
+					textFormat: 'minimessage',
+				}).init()
 				const group = getCurrentGroup()
 
 				if (group instanceof Group) {

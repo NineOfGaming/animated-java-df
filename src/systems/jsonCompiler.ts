@@ -343,6 +343,7 @@ function serailizeRenderedNode(node: AnyRenderedNode): ExportedRenderedNode {
 	delete json.path_name
 	delete json.storage_name
 	delete json.model
+	delete json.mini_message
 	transferKey(json, 'lineWidth', 'line_width')
 	transferKey(json, 'backgroundColor', 'background_color')
 	transferKey(json, 'backgroundAlpha', 'background_alpha')
@@ -369,7 +370,9 @@ function serailizeRenderedNode(node: AnyRenderedNode): ExportedRenderedNode {
 			break
 		}
 		case 'text_display': {
-			json.text = new TextComponent(node.text).toJSON()
+			json.text = TextComponent.fromString(node.text, {
+				minecraftVersion: Project!.animated_java.target_minecraft_version,
+			}).toJSON()
 			break
 		}
 	}

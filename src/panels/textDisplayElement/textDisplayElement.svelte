@@ -7,6 +7,7 @@
 		TEXT_DISPLAY_ALIGNMENT_SELECT,
 		TEXT_DISPLAY_BACKGROUND_COLOR_PICKER,
 		TEXT_DISPLAY_COPY_TEXT_ACTION,
+		TEXT_DISPLAY_FORMAT_SELECT,
 		TEXT_DISPLAY_SEE_THROUGH_TOGGLE,
 		TEXT_DISPLAY_SHADOW_TOGGLE,
 		TEXT_DISPLAY_WIDTH_SLIDER,
@@ -16,7 +17,8 @@
 
 	function highlight(code: string, syntax?: string) {
 		if (!syntax) return code
-		const cached = HIGHLIGHT_CACHE.get(code)
+		const cacheKey = `${syntax}\0${code}`
+		const cached = HIGHLIGHT_CACHE.get(cacheKey)
 		if (cached) return cached
 		if (code.length > 10000) {
 			console.warn('Skipping syntax highlighting due to large text size')
@@ -26,7 +28,7 @@
 		// @ts-expect-error - Broken BB types
 		const result = Prism.highlight(code, Prism.languages[syntax], syntax)
 		stopwatch.debug({ code, result })
-		HIGHLIGHT_CACHE.set(code, result)
+		HIGHLIGHT_CACHE.set(cacheKey, result)
 		return result
 	}
 </script>
@@ -44,6 +46,7 @@
 	TEXT_DISPLAY_BACKGROUND_COLOR_PICKER.set(tinycolor(selected.backgroundColor))
 	TEXT_DISPLAY_SHADOW_TOGGLE.set(selected.shadow)
 	TEXT_DISPLAY_ALIGNMENT_SELECT.set(selected.align)
+	TEXT_DISPLAY_FORMAT_SELECT.set(selected.textFormat)
 	TEXT_DISPLAY_SEE_THROUGH_TOGGLE.set(selected.seeThrough)
 
 	$: {
@@ -64,6 +67,9 @@
 	}
 	const mountAlignment = (node: HTMLDivElement) => {
 		node.appendChild(TEXT_DISPLAY_ALIGNMENT_SELECT.node)
+	}
+	const mountTextFormat = (node: HTMLDivElement) => {
+		node.appendChild(TEXT_DISPLAY_FORMAT_SELECT.node)
 	}
 	const mountSeeThrough = (node: HTMLDivElement) => {
 		node.appendChild(TEXT_DISPLAY_SEE_THROUGH_TOGGLE.node)
@@ -98,6 +104,7 @@
 			})
 		}
 	}
+
 </script>
 
 <p class="panel_toolbar_label label">
@@ -113,6 +120,10 @@
 	<div class="content" use:mountCopyText></div>
 </div>
 
+<div class="toolbar text-display-toolbar">
+	<div class="content" use:mountTextFormat></div>
+</div>
+
 <div
 	class="toolbar text-display-text-toolbar"
 	style={!!selected ? 'margin-bottom: 16px;' : 'visibility:hidden; height: 0px;'}
@@ -120,7 +131,9 @@
 	<div class="content codejar-container" on:keydown={onKeydown}>
 		<CodeJar
 			bind:element={codeJarElement}
-			syntax="snbtTextComponent"
+			syntax={selected.textFormat === 'minimessage'
+				? 'miniMessage'
+				: 'snbtTextComponent'}
 			{highlight}
 			bind:value={text}
 			on:change={() => forceNoWrap()}
@@ -201,6 +214,19 @@
 		}
 		& .token.boolean {
 			color: #f78c6c;
+		}
+		& .token.string {
+			color: #aef941;
+		}
+	}
+	:global(.language-miniMessage) {
+		& .token.punctuation,
+		& .token.operator,
+		& .token.escape-sequence {
+			color: #89ddff;
+		}
+		& .token.keyword {
+			color: #c767d7;
 		}
 		& .token.string {
 			color: #aef941;

@@ -126,6 +126,7 @@ export interface IRenderedNodes {
 	TextDisplay: IRenderedDisplayEntityNode & {
 		type: 'text_display'
 		text: string
+		mini_message?: string
 		line_width: number
 		background_color: string
 		background_alpha: number
@@ -594,13 +595,17 @@ function renderTextDisplay(display: TextDisplay, rig: IRenderedRig): INodeStruct
 	}
 
 	const backgroundColor = tinycolor(display.backgroundColor)
+	const text = display
+		.getTextComponent(rig.target_minecraft_version)
+		.toString(true, rig.target_minecraft_version)
 	const renderedBone: IRenderedNodes['TextDisplay'] = {
 		type: 'text_display',
 		name: display.name,
 		storage_name: sanitizeStorageKey(display.name),
 		uuid: display.uuid,
 		parent: parentId,
-		text: display.text,
+		text,
+		...(display.textFormat === 'minimessage' ? { mini_message: display.text } : {}),
 		line_width: display.lineWidth,
 		background_color: TextComponent.moveHex8AlphaToStart(backgroundColor.toHex8String()),
 		background_alpha: backgroundColor.getAlpha(),

@@ -1,8 +1,8 @@
 import { registerProjectPatch } from 'blockbench-patch-manager'
-import { TextComponent } from 'book-and-quill'
 import { injectComponent } from 'svelte-patching-tools'
 import { activeProjectIsBlueprintFormat, BLUEPRINT_FORMAT_ID } from '../../formats/blueprint'
-import { type Alignment, TextDisplay } from '../../outliner/textDisplay'
+import { type Alignment, TextDisplay, type TextDisplayTextFormat } from '../../outliner/textDisplay'
+import { textElementToMiniMessage } from '../../systems/df/minimessage'
 import EVENTS from '../../util/events'
 import { localize as translate } from '../../util/lang'
 import TextDisplayElementPanel from './textDisplayElement.svelte'
@@ -123,6 +123,27 @@ function addPrismSyntaxForSnbtTextComponents() {
 }
 
 addPrismSyntaxForSnbtTextComponents()
+
+function addPrismSyntaxForMiniMessage() {
+	Prism.languages.miniMessage = {
+		'escape-sequence': /\\[\\<]/,
+		tag: {
+			pattern: /<\/?(?:\\.|[^<>])+?>/,
+			greedy: true,
+			inside: {
+				punctuation: /^<\/?|\/?>$/,
+				keyword: {
+					pattern: /(^<\/?)[^:/>]+/,
+					lookbehind: true,
+				},
+				string: /([:'"])(?:\\.|(?!\1).)*\1/,
+				operator: /:/,
+			},
+		},
+	}
+}
+
+addPrismSyntaxForMiniMessage()
 
 const TEXT_DISPLAY_CONDITION = () =>
 	activeProjectIsBlueprintFormat() && !!TextDisplay.selected.length
@@ -257,20 +278,85 @@ TEXT_DISPLAY_ALIGNMENT_SELECT.get = function () {
 TEXT_DISPLAY_ALIGNMENT_SELECT.set = function (this: BarSelect, value: Alignment) {
 	const selected = TextDisplay.selected.at(0)
 	if (!selected) return this
-	this.value = value
-	const name = this.getNameFor(value)
-	this.nodes.forEach(node => {
-		$(node).find('bb-select').text(name)
-	})
-	if (!this.nodes.includes(this.node)) {
-		$(this.node).find('bb-select').text(name)
-	}
+	updateBarSelectLabel(this, value)
 
 	if (selected.align === value) return this
 
 	selected.align = value
 	selected.updateTextMesh()
 	Project!.saved = false
+	return this
+}
+
+function updateBarSelectLabel(select: BarSelect, value: string) {
+	select.value = value
+	const name = select.getNameFor(value)
+	const updateNode = (node: HTMLElement) => {
+		const label = node.matches('.bb-select, bb-select')
+			? node
+			: node.querySelector<HTMLElement>('.bb-select, bb-select')
+		if (label) label.textContent = name
+	}
+	select.nodes.forEach(updateNode)
+	if (!select.nodes.includes(select.node)) {
+		updateNode(select.node)
+	}
+}
+
+export const TEXT_DISPLAY_FORMAT_SELECT = new BarSelect(
+	`animated_java:text-display-format-select`,
+	{
+		name: translate('tool.text_display.text_format.title'),
+		icon: 'code',
+		description: translate('tool.text_display.text_format.description'),
+		condition: TEXT_DISPLAY_CONDITION,
+		options: {
+			minimessage: translate('tool.text_display.text_format.options.minimessage'),
+			json: translate('tool.text_display.text_format.options.json'),
+		},
+	}
+)
+TEXT_DISPLAY_FORMAT_SELECT.get = function () {
+	const selected = TextDisplay.selected.at(0)
+	if (!selected) return TextDisplay.properties.textFormat.default as TextDisplayTextFormat
+	return selected.textFormat
+}
+TEXT_DISPLAY_FORMAT_SELECT.set = function (this: BarSelect, value: TextDisplayTextFormat) {
+	const selected = TextDisplay.selected.at(0)
+	if (!selected) return this
+
+	const previousFormat = selected.textFormat
+	updateBarSelectLabel(this, value)
+	if (previousFormat === value) return this
+	if (!Project) {
+		updateBarSelectLabel(this, previousFormat)
+		return this
+	}
+
+	let convertedText: string
+	try {
+		const component = selected.getTextComponent(Project.animated_java.target_minecraft_version)
+		convertedText =
+			value === 'minimessage'
+				? textElementToMiniMessage(component.toJSON())
+				: component.toString(true, Project.animated_java.target_minecraft_version)
+	} catch (error) {
+		console.error(error)
+		updateBarSelectLabel(this, previousFormat)
+		Blockbench.showQuickMessage(translate('tool.text_display.text_format.failed'), 2000)
+		return this
+	}
+
+	Undo.initEdit({ elements: [selected] })
+	selected.textFormat = value
+	selected.text = convertedText
+	selected.updateTextMesh()
+	Project.saved = false
+	Undo.finishEdit(`Change Text Display Text Format`, { elements: [selected] })
+
+	requestAnimationFrame(() => {
+		void updatePanel()
+	})
 	return this
 }
 
@@ -325,9 +411,9 @@ export const TEXT_DISPLAY_COPY_TEXT_ACTION = new Action(
 			}
 
 			try {
-				const text = TextComponent.fromString(selected.text, {
-					minecraftVersion: Project.animated_java.target_minecraft_version,
-				}).toString(true, Project.animated_java.target_minecraft_version)
+				const text = selected
+					.getTextComponent(Project.animated_java.target_minecraft_version)
+					.toString(true, Project.animated_java.target_minecraft_version)
 				clipboard.writeText(text)
 				Blockbench.showQuickMessage(translate('tool.text_display.copy_text.copied'), 2000)
 			} catch (e) {

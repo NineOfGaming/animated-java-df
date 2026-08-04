@@ -1000,6 +1000,13 @@ animated_java:
 
   tool:
     text_display:
+      text_format:
+        title: Text Format
+        description: Select how text is entered and previewed.
+        options:
+          minimessage: MiniMessage
+          json: JSON / SNBT
+        failed: Fix the current text before changing its format.
       line_width:
         title: Line Width
         description: The width of the text display in pixels.
