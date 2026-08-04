@@ -76,7 +76,9 @@ This repository is a fork of Animated Java with support for exporting projects t
 
 1. **Send both template sets from Blockbench.**
     - `Animated Java > DiamondFire > Export` sends your project-specific init function as `rig.init.<project_name>`.
-    - `Animated Java > DiamondFire > Base Templates > ...` (make sure you have enough room in your inventory)
+    - `Animated Java > DiamondFire > Base Templates > ...`
+        - (make sure you have enough room in your inventory)
+        - Any templates outside of `Core` are entirely optional and only needed if you want to use those features.
 2. **Initialize each model once (for example in your setup/load code).**
     - Use `rig.init.rig("<project_name>")` for one model, or `rig.init.rigs(<list>)` for multiple.
 3. **Spawn a rig instance.**
