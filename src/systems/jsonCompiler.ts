@@ -1,5 +1,4 @@
-//// <reference types="blockbench-types"/>
-/// <reference path="/var/mnt/ssd2/repos/snavesutit/blockbench-types/types/index.d.ts"/>
+/// <reference types="blockbench-types"/>
 /// <reference path="../global.d.ts"/>
 
 import { TextComponent } from 'book-and-quill'

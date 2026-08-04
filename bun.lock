@@ -25,6 +25,7 @@
         "@typescript-eslint/eslint-plugin": "^5.54.0",
         "@typescript-eslint/parser": "^5.54.0",
         "blockbench-patch-manager": "^1.1.0",
+        "blockbench-types": "^5.1.0",
         "book-and-quill": "^1.0.10",
         "esbuild": "^0.17.10",
         "esbuild-plugin-import-folder": "^1.0.1",

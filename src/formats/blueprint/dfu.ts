@@ -1,4 +1,4 @@
-/// <reference path="/var/mnt/ssd2/repos/snavesutit/blockbench/types/custom/util/version_util.d.ts" />
+/// <reference types="blockbench-types/custom/util/version_util" />
 import { type IBlueprintFormatJSON, getDefaultProjectSettings } from '.'
 import { PACKAGE } from '../../constants'
 import { openUnexpectedErrorDialog } from '../../dialogs/unexpectedError/unexpectedError'
