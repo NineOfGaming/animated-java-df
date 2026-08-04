@@ -8,6 +8,7 @@ import type { AnyRenderedNode, IRenderedRig, IRenderedVariantModel } from '../ri
 import { CodeClientError, sendTemplatesToCodeClient } from './codeclient'
 import { textToGZip } from './compression'
 import { compressLocatorTransform, compressMatrix, rotateMatrix } from './dfdata'
+import { buildDFExporterFunctionBlock } from './dfExporterTemplate'
 import { jsonTextToMiniMessage } from './minimessage'
 import type { CodeBlock, CodeTemplate } from './types'
 
@@ -673,57 +674,7 @@ function buildCodeTemplate(
 	}
 
 	// Function Block
-	template.blocks.push({
-		id: 'block',
-		block: 'func',
-		data: `rig.init.${templateData.model_name}`,
-		args: {
-			items: [
-				{
-					item: {
-						id: 'item',
-						data: {
-							item: `{id:"minecraft:turtle_egg",count:1,components:{"minecraft:custom_name":[{"text":"Init Rig ${templateData.model_name}","color":"#6DC7E9","italic":false}]}}`,
-						},
-					},
-					slot: 0,
-				},
-				{
-					item: {
-						id: 'pn_el',
-						data: { name: 'nodes', type: 'var', plural: false, optional: false },
-					},
-					slot: 1,
-				},
-				{
-					item: {
-						id: 'pn_el',
-						data: { name: 'animations', type: 'var', plural: false, optional: false },
-					},
-					slot: 2,
-				},
-				{
-					item: {
-						id: 'pn_el',
-						data: { name: 'variants', type: 'var', plural: false, optional: false },
-					},
-					slot: 3,
-				},
-				{
-					item: {
-						id: 'bl_tag',
-						data: {
-							option: 'False',
-							tag: 'Is Hidden',
-							action: 'dynamic',
-							block: 'func',
-						},
-					},
-					slot: 26,
-				},
-			],
-		},
-	})
+	template.blocks.push(buildDFExporterFunctionBlock(templateData.model_name))
 
 	// Set Nodes Variable Block
 	let nodesVarBlock: CodeBlock = {

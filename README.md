@@ -74,27 +74,28 @@ This repository is a fork of Animated Java with support for exporting projects t
 
 ## Use exported rigs in-game
 
-1. Send both template sets from Blockbench.
+1. **Send both template sets from Blockbench.**
     - `Animated Java > DiamondFire > Export` sends your project-specific init function as `rig.init.<project_name>`.
     - `Animated Java > DiamondFire > Base Templates > ...` (make sure you have enough room in your inventory)
-2. Initialize each model once (for example in your setup/load code).
+2. **Initialize each model once (for example in your setup/load code).**
     - Use `rig.init.rig("<project_name>")` for one model, or `rig.init.rigs(<list>)` for multiple.
-3. Spawn a rig instance.
+3. **Spawn a rig instance.**
     - Use `rig.spawn(<entities_return_var>, "<instance_id>", "<project_name>", <location>)`.
-    - `<instance_id>` is the unique runtime instance key, while `<project_name>` is the exported model id from the previous steps.
-4. Animate the spawned instance.
+        - `<instance_id>` is the unique runtime instance key, while `<project_name>` is the exported model id from the previous steps.
+4. **Animate the spawned instance.**
     - Use `rig.animate("<instance_id>", "<project_name>", "<animation_name>", <tick>, <interp_optional>)`.
-    - `<tick>` is the current frame.
-    - `<interp_optional>` should always match the amount of ticks waiting between each frame. (set to 0 to disable interpolation)
-5. Removing the rig.
+        - `<tick>` is the current frame.
+        - `<interp_optional>` should always match the amount of ticks waiting between each frame. (set to 0 to disable interpolation)
+5. **Removing the rig.**
     - Use `rig.remove("<instance_id>")`.
 
-Function icon stack count guide:  
-The stack count shown on each function icon is a quick usage hint:
+### The stack count shown on each function icon is a quick usage hint:
 
 - `1`: Setup functions. Use these once during a rig's lifecycle, usually while initializing or spawning it.
 - `2`: Runtime helpers. These are the functions you will call regularly while the rig is active.
 - `3`: Internal helpers. These are used internally and usually do not need to be called directly.
+
+<br/>
 
 > [!NOTE]
 > `rig.spawn` automatically applies animation `default` at tick `0` after spawning.  
@@ -102,15 +103,13 @@ The stack count shown on each function icon is a quick usage hint:
 
 <br/>
 
+---
+
+### For questions or discussion: join the [Discord server](https://discord.gg/vpWfwa28Sm).
+
 ## Credits
 
 This fork is based on [Millo5/animated-java-df](https://github.com/Millo5/animated-java-df), with the goal of being more up to date, user friendly and feature complete.
-
-##
-
-For questions or discussion: join the [Discord server](https://discord.gg/vpWfwa28Sm).
-
-<br/>
 
 ---
 

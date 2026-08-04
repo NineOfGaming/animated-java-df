@@ -1,7 +1,28 @@
+import { gzipSync, gunzipSync, strFromU8, strToU8 } from 'fflate/browser'
+
 export class DFCompressionError extends Error {
-	constructor(message: string, public cause?: unknown) {
+	constructor(
+		message: string,
+		public cause?: unknown
+	) {
 		super(message)
 		this.name = 'DFCompressionError'
+	}
+}
+
+export function gzipBase64ToText(input: string): string {
+	try {
+		return strFromU8(gunzipSync(Uint8Array.from(Buffer.from(input, 'base64'))))
+	} catch (error) {
+		throw new DFCompressionError('Failed to decompress DF export payload.', error)
+	}
+}
+
+export function textToGZipSync(input: string): string {
+	try {
+		return Buffer.from(gzipSync(strToU8(input))).toString('base64')
+	} catch (error) {
+		throw new DFCompressionError('Failed to compress DF export payload.', error)
 	}
 }
 
@@ -45,4 +66,3 @@ export async function textToGZip(input: string): Promise<string> {
 		throw new DFCompressionError('Failed to compress DF export payload.', error)
 	}
 }
-

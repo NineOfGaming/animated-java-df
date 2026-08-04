@@ -1,6 +1,9 @@
 ﻿import { sendTemplatesToCodeClient } from './codeclient'
-import { textToGZip } from './compression'
+import { gzipBase64ToText, textToGZip, textToGZipSync } from './compression'
+import { buildDFFunctionIconItemSnbt, type DFFunctionIconDefinition } from './functionIcon'
 import type { CodeBlock, CodeClientTemplateItem, CodeTemplate } from './types'
+
+export type { DFFunctionIconDefinition, DFFunctionUsage } from './functionIcon'
 
 interface HelperFunctionItem {
 	item: {
@@ -25,6 +28,7 @@ export interface DFHelperTemplateDefinition {
 	description?: string
 	functionName: string
 	category: DFBaseTemplateCategory
+	icon: DFFunctionIconDefinition
 	codetemplateData?: string
 	author?: string
 	version?: number
@@ -37,46 +41,166 @@ export interface DFHelperTemplateDefinition {
 	publicBukkitValues?: Record<string, string>
 }
 
-function createFunctionBlock(definition: DFHelperTemplateDefinition): CodeBlock {
-	const items: HelperFunctionItem[] = [...(definition.functionItems ?? [])]
+interface CodeTemplatePayload {
+	author?: string
+	name?: string
+	description?: string
+	version?: number
+	code: string
+	[key: string]: unknown
+}
 
-	if (definition.hidden !== false) {
-		items.push({
-			item: {
-				id: 'bl_tag',
-				data: {
-					option: 'False',
-					tag: 'Is Hidden',
-					action: 'dynamic',
-					block: 'func',
-				},
-			},
-			slot: 26,
-		})
+const HELPER_TEMPLATE_CACHE = new WeakMap<DFHelperTemplateDefinition, CodeClientTemplateItem>()
+
+function synchronizeFunctionBlock(
+	functionBlock: CodeBlock,
+	definition: DFHelperTemplateDefinition
+) {
+	const existingItems = functionBlock.args?.items ?? []
+	const slotZeroItem = existingItems.find(item => item.slot === 0)
+	if (slotZeroItem && slotZeroItem.item.id !== 'item') {
+		throw new Error(
+			`DF base template "${definition.templateName}" reserves function chest slot 0 for a non-icon item.`
+		)
 	}
 
-	return {
+	const items: HelperFunctionItem[] = existingItems.filter(
+		item =>
+			item.slot !== 0 &&
+			!(item.slot === 26 && item.item.id === 'bl_tag' && item.item.data?.tag === 'Is Hidden')
+	)
+	items.unshift({
+		item: {
+			id: 'item',
+			data: {
+				item: buildDFFunctionIconItemSnbt({
+					displayName: definition.displayName ?? definition.templateName,
+					description: definition.description,
+					icon: definition.icon,
+				}),
+			},
+		},
+		slot: 0,
+	})
+	items.push({
+		item: {
+			id: 'bl_tag',
+			data: {
+				option: definition.hidden === true ? 'True' : 'False',
+				tag: 'Is Hidden',
+				action: 'dynamic',
+				block: 'func',
+			},
+		},
+		slot: 26,
+	})
+
+	functionBlock.data = definition.functionName
+	functionBlock.args = { ...functionBlock.args, items }
+}
+
+function parseCodeTemplatePayload(
+	value: string,
+	definition: DFHelperTemplateDefinition
+): CodeTemplatePayload {
+	let normalized = value.trim()
+	if (
+		(normalized.startsWith("'") && normalized.endsWith("'")) ||
+		(normalized.startsWith('"') && normalized.endsWith('"'))
+	) {
+		normalized = normalized.slice(1, -1).trim()
+	}
+
+	let parsed: unknown
+	try {
+		parsed = JSON.parse(normalized)
+		if (typeof parsed === 'string') parsed = JSON.parse(parsed)
+	} catch (error) {
+		throw new Error(
+			`DF base template "${definition.templateName}" has invalid template metadata.`,
+			{ cause: error }
+		)
+	}
+
+	if (
+		!parsed ||
+		typeof parsed !== 'object' ||
+		Array.isArray(parsed) ||
+		typeof (parsed as Partial<CodeTemplatePayload>).code !== 'string'
+	) {
+		throw new Error(
+			`DF base template "${definition.templateName}" has invalid template metadata.`
+		)
+	}
+
+	return parsed as CodeTemplatePayload
+}
+
+function materializeCodeTemplateData(definition: DFHelperTemplateDefinition) {
+	const payload = parseCodeTemplatePayload(definition.codetemplateData!, definition)
+	let template: CodeTemplate
+	try {
+		template = JSON.parse(gzipBase64ToText(payload.code)) as CodeTemplate
+	} catch (error) {
+		throw new Error(
+			`DF base template "${definition.templateName}" has invalid compressed code.`,
+			{ cause: error }
+		)
+	}
+
+	if (!Array.isArray(template.blocks)) {
+		throw new Error(
+			`DF base template "${definition.templateName}" does not contain a block list.`
+		)
+	}
+	const functionBlock = template.blocks.find(block => block.block === 'func')
+	if (!functionBlock) {
+		throw new Error(
+			`DF base template "${definition.templateName}" does not contain a function block.`
+		)
+	}
+	synchronizeFunctionBlock(functionBlock, definition)
+
+	return JSON.stringify({
+		...payload,
+		author: definition.author ?? 'NineOfGaming',
+		name: `§b§lFunction §3» §b${definition.functionName}`,
+		description: definition.description,
+		version: definition.version ?? payload.version ?? 1,
+		code: textToGZipSync(JSON.stringify(template)),
+	})
+}
+
+function createFunctionBlock(definition: DFHelperTemplateDefinition): CodeBlock {
+	const functionBlock: CodeBlock = {
 		id: 'block',
 		block: 'func',
 		data: definition.functionName,
 		args: {
-			items,
+			items: [...(definition.functionItems ?? [])],
 		},
 	}
+	synchronizeFunctionBlock(functionBlock, definition)
+	return functionBlock
 }
 
 export function buildHelperTemplate(
 	definition: DFHelperTemplateDefinition
 ): CodeClientTemplateItem {
+	const cached = HELPER_TEMPLATE_CACHE.get(definition)
+	if (cached) return cached
+
 	const template: CodeTemplate | undefined = definition.codetemplateData
 		? undefined
 		: {
 				blocks: [createFunctionBlock(definition), ...(definition.extraBlocks ?? [])],
 			}
 
-	return {
+	const templateItem: CodeClientTemplateItem = {
 		template,
-		codetemplateData: definition.codetemplateData,
+		codetemplateData: definition.codetemplateData
+			? materializeCodeTemplateData(definition)
+			: undefined,
 		templateName: definition.templateName,
 		displayName: definition.displayName ?? definition.templateName,
 		description: definition.description,
@@ -87,6 +211,8 @@ export function buildHelperTemplate(
 		customData: definition.customData,
 		publicBukkitValues: definition.publicBukkitValues,
 	}
+	HELPER_TEMPLATE_CACHE.set(definition, templateItem)
+	return templateItem
 }
 
 export const DF_BASE_HELPER_DEFINITIONS: DFHelperTemplateDefinition[] = [
@@ -95,6 +221,7 @@ export const DF_BASE_HELPER_DEFINITIONS: DFHelperTemplateDefinition[] = [
 		displayName: 'Init Rig',
 		functionName: 'rig.init.rig',
 		category: 'core',
+		icon: { model: 'minecraft:diamond', usage: 'setup' },
 		description: 'Initializes the specified rig and its animations.',
 		codetemplateData: `'{"author":"NineOfGaming","name":"§b§lFunction §3» §brig.init.rig","version":1,"code":"H4sIAAAAAAAACu1Z227jNhD9FYFFgLhQ3bW7zaLC7gJpLt0Am0XQBO1DHBg0OZaIUKRAjrx2Df97QckX+RJbsp3LBnlKRJNzZs4cDofSkHSkZveWBLdDIjgJ8mfij/8GpJsqRnxCTWhJMCQCIR7PRoizEbcqe/AJp0gns0hAhqfn7W9/3gTvjz40fKbjRCtQaINhi8RCATO0iwFLLeq4rWgMLRIMoY+GBrdDpqU2QYv8dHR68uHsjxbxEfoYtMiFEuj9LcIWGd35AqkULHjXmfzaIiO/aF1q48zeDjtacjdvYvd7JBBaxF/ECw0dzIMJKsV/YD2MwLMJMNEVwD0jQo8q7gm0HlUipii0svUFr3Snm1pGETJsi0bcA0ZGp2E057SfKg5GCpVNHN2NfKZThUHDFzwoxmOV6HbBtCF0BJDRyCdWaiTBu5G/kJNEtUEWkuIYdqnixCc4SNz/2Efik0SmhkoSdKm04BOduFAKAxwsMyIbJQG5OC2gNpZQO7KNNCzA6snCc2fNYdPQmbHeF8E5KCcuNp7CB4rGgi3Kb4bXPHLcjG0TI8K6UALrRoQk82SVghmVsl1Oxj1qlglzKAc9ag4Fr9WV5mCJTyzTGYOpsrQHfG0iVlqdaqZgzOV/LbkrLfWoEVShfdhQcyVpk5geZk502znik9DmfJwq4R8qU7iwZ3GCg4KDhrJ7cJrlwgBDEhCdZBIaC1ppE69RglZotNwckKtVyxFdag7S+5hVjs+T0LyPBizgZ67BekqjF9EeeFQNvCzm+lplPLxZTqEHUidgphvmCkwsrM0VM+XpygiFp9BJwxVxFhTQrIB9zLl3nVCWZSwHv4E+ellOvEswoVDhNk78VsGJb1rNisUXEUZShBFuCfy+EvNdmkqcYl/rVPFtQH+vAPovNSqPLQe9BGtpCN41DiRsA340v50Ky9ZtJiZ1XqLL7KadqkOJ8vf6KkKhT3grC29l4XWWBQu4r65hRWezdb+1uUtqzHPzqVSIk9knBijCV2FxX+1SW/DNHdPzuSg1o6jNC/dSKAST237hnjIag6G7OWkgAYpFH8+1OaMs2tJBJ8N153OpjVfxHlDlRnlj0tlhcCyl/u65dHgnEVVhhrOCiAWyFopj+cZisr6CYv4CPJbyAiG+oaHdISn1bGzXzKxPb2Od0ma936xcbgwnf9uw4MQBKDSDw2lUvqO3tjaYlXbG9ejBAHbrE1ck8zhJQPGs+XnaelqKjiVas4t+aW4qnfjg3uvsi+mXp6y8Mv+wwip9sLzp6ml1VehNflhxVeuvXrfCHp/tkteC56f52edvas5mnfKW766y71U7d2CZpYSyexqu7cT29UWhOX/FHTfFZ04JFbZBhc53V8W7mPKnKem1ugQVYrSvjzDb8K/SeNlY42Gir3TiLiZ5IXgk3pZYeVxJzsXngvua4z/OlhNV4lqZnYOYYnSYSSlnqvZrc7HgFSK6TCWKRFY5HZ57WxwIxaF/WEygX4ha1H5u/tKo1fZyeGyGqq0h99NOpbz0irvR/zJdLADfIAAA"}'`,
 	},
@@ -103,6 +230,7 @@ export const DF_BASE_HELPER_DEFINITIONS: DFHelperTemplateDefinition[] = [
 		displayName: 'Init Rigs',
 		functionName: 'rig.init.rigs',
 		category: 'helpers',
+		icon: { model: 'minecraft:diamond_block', usage: 'setup' },
 		description: 'Initializes all specified rigs and their animations.',
 		codetemplateData: `'{"author":"NineOfGaming","name":"§b§lFunction §3» §brig.init.rigs","version":1,"code":"H4sIAAAAAAAA/51UTW/bMAz9K4Z2NYKmGFJMt61psALDDkNvTWDIEu0QlSVDottmgf/7KDdZnaTpPi62SfHj8T3KW1Farx+ikPdbgUbIF1vku7cUVec0myrUHMQxBM0umr8GT8oajFwYRWofxd7tfFF8/3InP86uprn2TesdOIpyuxQNOtBBVSR1F8k3hVMNLDkXnikorq+99UEuxYfZ/Prq5tNS5MRH7Lh1SNkPrONS9KscSVnU8qLcH7M3H5cHp9fKUcONi9oiP/0jhIAmdZuWB7HcMXnvt6W3JtXcg3ha80QM4RhcHdTmEBkynJ8QM2VtFlvQWCGYLDDcTDmT0Row8Bc2itC7ODkawpdVF7UiGNpHCvgAtA6+q9cHM+adMxB4nCGwX/UMtXMkpzkaOR4pOqwqCAXUNbcSfZ+LaD0JedHnRxq2rgA7EjEpkqQ1kZ20aZNBz8RGa7ugrJAUOsiFb9Moya6UjewwEHXAwcspt/M4ajs9aVvaglQ96uv3mYtULvXmY64Ts69oDLi0jXoXYjaMEvXxvr72u5wlcna1BeswQVZpkgQRA5S3dj5AC4r+vPWPKrzFF/ui9gNfSaF3ST9TIp6v8S8M3rFAvwn8bK1/yr5hpOyar0QNcczkwocbpdenLJxweZLyymNQmvc1IcEAmlMYyiDYbn32Jc8Rr/naFH/3x/kP7s8swrv4tfUvO3g4wKr/BQIsH6E6BQAA"}'`,
 	},
@@ -111,6 +239,7 @@ export const DF_BASE_HELPER_DEFINITIONS: DFHelperTemplateDefinition[] = [
 		displayName: 'Spawn',
 		functionName: 'rig.spawn',
 		category: 'core',
+		icon: { model: 'minecraft:sniffer_egg', usage: 'setup' },
 		description:
 			'Spawns an instance of the rig at the specified location.\nAutomatically applies animation "default" at tick 0 after spawning.\nResets the selection and restores your previous selection.',
 		codetemplateData: `'{"author":"NineOfGaming","name":"§b§lFunction §3» §brig.spawn","version":1,"code":"H4sIAAAAAAAACu1ZbU8jNxD+K5arSj1phUKPcuqKQ6INp+MDFBHu+oGgyLEnGxevvbXHgTTKf6/szcvmPYRLuUp8yq7XO/M8Y8/j2cmAtpXhD46mdwMqBU3Le5qMflPa8ZrThDKbOZoOqETIR7MR8jgS3oo3CRUM2XgWTemg/ql19dttenT84TDhJi+MBo0uHTRpLjVwyzqYcu/Q5C3NcmjSdABPaFl6N+BGGZs26Q/H9d8/nP/apAnCE6ZN2ijYoyY3MmvS4X0ikSnJ01p7/LhJh0nVPGjeZRpz0NjKlNTYMj2wVorgrdaemauMDaN3g7ZRIjwcg3jsSoQmTebBZZb155A5wjSR2iHTHIjpEOwCsTIjDOOlK4DLjgRBlOEMpdEHc0RMu+MdZwgRgkMrHwC71visO8Mz8VqAVVLHicNkR9RnHk3OUHKmVJ+wolASAgmZR3Sk2WxSAR3mFYbLyEPyB1IjrINgiQuspc5emcYNOEBXhhgU8IidaUEsODQWHOkbb0lhoSeNd9NJ3wj3/TDhxmtMDxMp0uquclp2OmBbkIUtS4fDhDplkKa1YTKXRoVugarkUUgKmlLQKFGCownFfhFGeszShBbKW6Zo2mHKQUJNEfhUBgQ4bmUcpSk9H1uZIjjcFoEUU9/4hLv57pOLesX5z9s6z42Iwy/wfxlMzLp/v617ZfjUeXnzPOelYo3TvQLhaFsIzheFBefqvoA/mQ3pNoWkfZTeMkVbPaY8TOyNns1aq0UIKzmg9YsURgBI3RdKhuwgUxzaYDB7YkGc1shJyMvTj+Qk5u3pp2CenAhmH1rsb89Oz+P97KRb66ESl18W4tJWLWRZhYoZI4v2QzBYRlN64chnKQTocGTx0RTR1yyXfP5Qq+zE45C+I9vUyuwgihqNMJYdig5CoO3mc7GcNL+aY+mhCXXclPtKalgrDVlY2Yqt0eI3Jlp3y2wGSL58uahHoYi3NKX1cmPMZH1gOwnPx9U8ZecFNEMcf+wx+1PM33cH2ogoYWPKXjvWAzHDegbYV2bPn6TD8BJDtLLt40a7+uO2Atky/gBBEYS0wANjU8T1H6eHsflqhtxotEZtphjKl0WOpa6MdnGFLDmx4Tw6FQYc0QYJBCIHa1d49R6vQw+UKcBO9vk12Fw6V+6hScCurdRYh7bPljCsbPdF5V3t+0wI0igYL0+f6PwWnpB8DTpDLsFmpQg8G8Si/q4GcWX0NMc/y6yrZNbFHR0vqu66yJfJM/bdMF6LXZw+R9LOrTXTpb4E51gGpIF9Bbu4Pp7NqsprO2TFjKkbQG/12lzkypTyvE0yvrbcKA8X7jwvsP+/05cu6wFhuk8i7TeheROaN6HZk9AsL8a3LuTWlOQby7OXadE3ldd4LcW7g8rH6Q6V3Xeis2exRfMosRs7CFLMaK4UE8FlygIT/bKec8mk+0Fyr1AWKvZ63NSSY3k0J0uZtsBNnoMWIN40+k2jt3Ba+dz/71T6ufL6QjkOrcfWdo3mpdq0RII2yvBSQ7HNtcLEYq9sqYlxs2qFlcVsW2qlbDOtsPF+abdiVPDuLcjrYrNleDfEZjHCZatvzopYaGgsBnXjIbsoOBtfOZoPe9kjh3VtotCcaZn2X5sLHAe4r3plm3bT6i+h/fVe1oZnP8yuFeuDvQqvvzjYGztyDfkPrO/EfU/V4SusRvmvQOhY7v/suR/+C2omjG3sHAAA"}'`,
@@ -120,6 +249,8 @@ export const DF_BASE_HELPER_DEFINITIONS: DFHelperTemplateDefinition[] = [
 		displayName: 'Spawn Nodes',
 		functionName: 'rig.spawn.nodes',
 		category: 'core',
+		icon: { model: 'minecraft:sniffer_egg', usage: 'internal' },
+		hidden: true,
 		description: 'Spawns the nodes for a rig instance.',
 		codetemplateData: `'{"author":"NineOfGaming","name":"§b§lFunction §3» §brig.spawn.nodes","version":1,"code":"H4sIAAAAAAAACu1WbWvbMBD+K+bGYAMR2rW0TLAPW1+2wtYv67e6GEW+OKKyZKRz2mD834eVeHGcl6XpGGX0U/DlfM+j57k7uYKhtvLeA7+tQKXAZ8/A5r8cRqWRwEC4zAOvQBHm82zCPESat8IDg1SQaLOAQ3V+mVx/ueHHJ6eHTNq8sAYNeV7FkCuD0okRcVl6snliRI4x8AofyQl+W0mrreMxvDk5Pzu9+BgDI3wkHsPPQjyY6Nqm6GOo75gioZXkB8M2IYaadQHQyLEwlKOhJNPKUGIn6JxKG7yD4VKutq6J3lZDq9Pmz5bGw1gRxsD69DInpj1uPqIxRqYhGI2si0TkVBYp40kYiYMeaTsclV4KwgDnyal7pLGzZTZeOhMrTYpOKxMS67uaSVsa4kdMpbx7BG/UaIQuwSyLoYa6ZuC1JeAHNeu5VpgEdce2xgPggIYUKfTAgKZFE5kIBwwKXTqhgY+E9sjAFqSs6QRS9NKpEAUOF22VBYPDXRmodIFNj7Qf9jS6Ou+Af9gVPLdpCD8D/0dTYhn+aFd4beUCfPbwNPDZgGgrRQgsKByvUBjqhETW4WDbIjeuxIaGyIDDlY++qTRF0ywCOc9Ip0bkSvZXRUfwk6ZL56XBqWzgG2aDMBkQuKxbOA4LFNRFurTuQsjxn7fQrE17ejZwwMBLO1NUGdw6FGuLNOzfToR7F5rj/fwMi6ql8WKC6dZe31Hsz1rbh+i78hSdjYXJAs4aLXp69XRfyOuEvMdGz1Q5lAQcbBGcnLdY+/4mPzxSMtPkN4mvSFeE+U04zb6eDAL+c43Z7u6qCbNp7hUJTLqboqtfTw416qvx6V+KsJa/FDk6sXTup3SAsS7f7L8UWie7fQWsPWbnNnme1eFS2NnotSXa1b6hyuoVsbbKbClvqLG65/fo2+P1m7P1eYuzUluPu1qL2uPWak/pk5c4GMoQujmf1+n4z6djyewXOSKvzfJimiW8tH+X/PX89ivsrv4FUkG0iJMPAAA="}'`,
 	},
@@ -128,6 +259,8 @@ export const DF_BASE_HELPER_DEFINITIONS: DFHelperTemplateDefinition[] = [
 		displayName: 'Spawn Node',
 		functionName: 'rig.spawn.node',
 		category: 'core',
+		icon: { model: 'minecraft:sniffer_egg', usage: 'internal' },
+		hidden: true,
 		description: 'Spawns one node for a rig instance.',
 		codetemplateData: `'{"author":"NineOfGaming","name":"§b§lFunction §3» §brig.spawn.node","version":1,"code":"H4sIAAAAAAAA/+1ZW2/bNhT+K4KGAjUgGM2appiAPrRxswVLgqFx99IEAk3RCleaFEgqiWv4v++QshxJlhRJjlOjyItl8XLOd+7k0cKdMIG/K9f/tnBp6Prpu+utnr47TTiGVyQjWARrNJmtVsM/O2J22RfPDZFG2SoYXYxOgotPY//w6P2Bh8UsFpxwrfzFlTujnGCJptrHidJiFnA0I1ewl9xriYA+FkxI/8r97Wh0/P7zH1eup2EKBi5jdMedCxHC8uW1RzViFPtvJtk8jHp5+oTjG8T1DDgHEaPwK26JlNTsN9vya4GlGf22mAgWmskMxd0NiAQYyugiieYlaMoBKR0O+JypkA5yJI0cypVGHJNhCbOYTBOFkSaWm9KSfif6RookuimI5CU8JBLQ24XL6yUgS7j233o09PMSKE6nUyIDEkXAyl0uPVcxoUHSpVeyWcwDwnJGMxaAYdAT1ZQomNHz2IzcIgkvMUskYq4/RUwRzxWxpoLnBkKisKR2FPZ8zqg8IDhoiwDm1rz1ve7He+6cjnLMf2/LfAaGY9vxPzckiuzftmUPUffAPH3pxjwND9iJ7MADhMO2EIzrPmBAfN4ZgwlOx7J6YP9ug/2EBRpFOf4i2z+WiUUAs757qpy/aBgSbrIQXq0I5wCW4nKeytn7yATJirQLIThURjFDK5yFUpXsFNFB6u2P5Lt0UYXihnYMUGCRmhAiszEKaynVEzmwoq118SfRHxk7BaJjBKBrhaPTdrKlLl9C9ArSgpy/XovoGfcYNEpWScc6ppD10nzICSARhnRoiFBJMKwFF7F+sPJNLuRsV8Y0LvMKZl7bhDBI/9NwMFxJoIYbKjGzAvZRnrNdwhW6JWF3H0iDv50LfNgzLUCR5GpqrNNNETyZtXC9kExRwnQQ3w8ay0tHavNBY73oSO3HoDH9d6MmC5JuZvKO1AqSviu60rEkcBw5o0rX+xRGjAXtDoaVXmUL/HYZMivTtfHRKhtVOW/BCUo1JIlDo5wshzUkKsyEIm0zFYEa+mRpby/SPIaHRM+R5bf1xdxxdzuPbHLqTXfs49SbOal74djMRD0OIIfVZ6vM6C9hUUcnBfMMUREBv2BFt19cNHrREx1j++VoK2MA92lN1Ga2XivTXoQ+mbUjquKmAxID/QZi8l+FpgoUz5DS6d1yd+koBKwMzUdPdYt45D5yUI5kLPgtkXqUg/GzZS3nGqLXVt2E+JJySnRMC2n/b1sWZQd/b6kyoNp8RajvQZyYxsa6CfEPkoo4ZyRCeO4cm+Yf/Ib21LDWpV1zTjk9J0qhiFQoJ5esuvRDThLG1lDgri/uSOjYy35v9kdFP9jYvOeVpdlfuti52GviN0RS7VzqOSsa11aTMXBdpZ0ajfQ08IVw4AiF06arRWJYOf8ilhDnnMiI8mg7NEcVxTFP4KU8/jrlMWfXPa6O+5FIOnVabdSYRuvLifIXC5nMqNuHzLYhZr3hWeOi7Rnob0Ji5ziREjA6X4RGGcTMm8fg97GQulac+nqU26pBZGL0dmnDyO7bpbYeabr0PXsWO4nlREL0sf3sPbaK36HIlWCtyAHt8VGiucm1dzLuoK/8VDJud1/q07WMgF/+c+8qH339ejqqwV4n9scY6nxoT6fP/uGpQvI2X5b6Be0TqrDcnSJQEbF+VIdtTxJfCOh792Xrevk/KLl2mzIkAAA="}'`,
 	},
@@ -136,6 +269,8 @@ export const DF_BASE_HELPER_DEFINITIONS: DFHelperTemplateDefinition[] = [
 		displayName: 'Spawn Camera',
 		functionName: 'rig.spawn.camera',
 		category: 'cameras',
+		icon: { model: 'minecraft:spyglass', usage: 'internal' },
+		hidden: true,
 		description: 'Spawns one camera item display for a rig instance.',
 		codetemplateData: `'{"author":"NineOfGaming","name":"§b§lFunction §3» §brig.spawn.camera","version":1,"code":"H4sIAAAAAAAA/81YW0/bMBT+K5EnJCpFVblrkfbAWrYhsT0M2AtFkeu4qYdjR7YDZFX/+06cFpI2DUkpGy9QH9vnO9/xubVTNOKS3Gnk3UwRC5CXr5E7/++hcSIILLEK4RCcMTSan4ZPVpLdsgsXBdjgxSmQTgdf/B+fr7zD45M9l8goloIKo73pEEVMUKLw2Hgk0UZGvsARHcJd+mgUBv1Ecqm8IfpwPOifnH0cItfAFgguY/wgnD4cV3iIZrcuM5gz4vVGixMgdYsIVJAJFiYCbD/kDP7Ke6oUCzJAuFY8C6CZ9GY6kjzINhd2PEyAFFixbF+ocLpknHaAp0OshU7mCidgOuY4dcZSOdhRLHSY0AYLQrtLFORonGiCDbXg2ih2R81EySSclBi6iQioAjL24Ox2BoYmwngHLgu8IiEt2HhMlU/DEKDQbOYizaUB4jN36RFj4VNeeMXsSUAMbmOGUQ07Jo0zyT1WsIh5ojBH3hhzTV0kY8OkKAgCqoliVgp3zhZani3Ya2oB7D1hm0ezGXbqnA8K4PtNwSMZWPEr8L9nKsrwB03hIQ2fwfNFO/A8X+AmtoJnEw6bmiDA/GcbsEhb2/ADNNhMKMAfrcCPuG9wWMCXi/tXKrEWwK6HzrXzjQUBFVlZIvMTQQrGMrJcuArvfZwlyVw1ghTs6swx3TxNkTWmqv5pavw83l8ogfmhCtd1rQzsIDJ/RMjN2jxcq2m9kj1L7skbX6k55fwclF5hMPqNyGVO3IGdXZsinfwzCzpzn+ruDpQOle4+OcHNNiVcY6JAJREa39OgvUvybGjmkU/vywnQQ4SGbhC19INIolUTVhACOsYJN3782Kktty21pZ3a+tlS259ObTlsp02VmK5WtpbaSkyPypHUVxTa8wXTZn1IhQDgz29sFla1sb0aF3lXWtKBmVqfELYtZBViALNJXXJwSmBgGv2uIFJSeIG1yRvtem12lEgbe6by1XrtE6TXPgt6pVAvER3kw9wlwTxvSiqkJvOodZXtsVviXxkZi3nkdbFRVZVqgoWavh3Tr2x/fkPKlcZayj7boEXYybFZh3gPHNsTfCEatsfxdV2y8B2icdyGgFecRufz5/U1DNLVtq+jfRrHVAS/MIcp8l+PARXMmzT6zZJ2iy7cX4mcASPm//iwdpRKklKSN3Hu9iKrZqyE9sD9Zr+etC5d2yoO24i6hoNgrzTtLX0VS2JY0P6LX8WaziI/KUQiApS/C9AXg+ASAAA="}'`,
 	},
@@ -144,6 +279,8 @@ export const DF_BASE_HELPER_DEFINITIONS: DFHelperTemplateDefinition[] = [
 		displayName: 'Spawn Interaction',
 		functionName: 'rig.spawn.interaction',
 		category: 'interactions',
+		icon: { model: 'minecraft:tripwire_hook', usage: 'internal' },
+		hidden: true,
 		description: 'Spawns one interaction entity for a rig instance.',
 		codetemplateData: `'{"author":"NineOfGaming","name":"§b§lFunction §3» §brig.spawn.interaction","version":1,"code":"H4sIAAAAAAAACs1YUW/bNhD+K8INBWpACJK0TTECe+jibDPQ9aFJ9xIHAk2dZS4UKZAnN66h/z6IsmvZlmXJSYc+JWKo++47fvfpmCVMlBGPDtj9EmQMrHqGcPWTwTTXAkLgNnHAliAJ09VuwtSvlG/5hxBiTny9Cxgsh39En36/Y2+v3l+EwqSZ0ajJseUYUqlRWD4lJnJHJo00T3EMbIlPZDm7XwqjjGVj+OVqeP3+5tcxhIRPxMZwm/GvOhhpQssFSaPHUDyEkriSgp1P1tvGUIR1GNRixjWlqClKlNQUmTlaK+MS9XyytVcZW67eLydGxeUf18l8nUnCMYS7SSaWL3YydIHRGMhNmgFqkrQIpsYGPLAyCaR2xLXAsx0GZjLNneCEHtuRlY9IM2vyZLZFMMx1jFZJ7TcWD0UoTK6JvQllzOp8nJbTKdoIk2QMBRRFCE4ZAnZehDsHmekIVe0ky2MBBj53iQ5CoEVWrsy5hRAylVuugE25chiCyUqmtYUYnbDSrwKDm3WUTQYXXTOQ8Qabnug07EUwGtbAL7uCpyb2y8/A/7sMsQ3/piu8MmIDXj30A696RhnB/cImhbddU9Amxk0OXC965/DJxBh4qA38uz34iYqIJzV8s37/zuY+A54Ag5EL/pJxjLq0JrHaES80T6XYNa/aeV+VTbIKDVYmZ64szFmtS8Fn1GSEDimqRP8d8E+kD0qNCNM7nrjjLlm93lDZM78WghOmOmOpsbVND0Y6HOSieCj6kPvtRD5lWV/NuX3tm2ZQ/S7jQb3K7uwVarKL19/Jh+UOY2UidY1Crh2fY9y/FFWTvFAlri1ywo/S0f9fErJcu6mxac+q6Dzdz2MPIcYpzxVF2dOg1ZN7RlsMWk22Z7Rvg1bP7BfNbjHdt7+e0baYvmvTVcJTjFaSqmnLO3NtmDlRYa16P1UdX2VMs5cQxgxlMqN2URw2/qF0fKI23v8ZXWa0k3M8Usim0u98DFpsQKGgyEz+rYN85I6qQaLhnFqiyekJ7lpNGcdqa6tq4KD1wBtjUflFPWSLlotH9C9Ji4KAgcn853Y1AujSkw4SrmbdBr2vT2h1iHi8DIeFcaM76KIBsDnJvTGBuE2wJH7rtbA9HOyXRyjj8Nn1uUW69heiO8/5FC9YD6ud3aCb0GQ82BHLkRL9GMqNyXrKkTxhUPDXipY54Sfj2J/gETX059gwIH3IMtTxP1zlHfq5Mcva/bKzbJNozus3lVXjffkyGkIzpZMnwFukoRT0HIYHZ8AG6l0GvNOa9gVrePnz3yfyfKu9u5T1R4lKcKWibv9L6+1TL+UELyGxy90bdp7FnHDU7YbdNHN9RodNF6+Hongo/gO1rVNJwBQAAA=="}'`,
 	},
@@ -152,6 +289,7 @@ export const DF_BASE_HELPER_DEFINITIONS: DFHelperTemplateDefinition[] = [
 		displayName: 'Animate',
 		functionName: 'rig.animate',
 		category: 'core',
+		icon: { model: 'minecraft:sniffer_egg', usage: 'runtime' },
 		description:
 			'Sets the rig to the specified ticks pose.\nResets the selection and restores your previous selection.',
 		codetemplateData: `'{"author":"NineOfGaming","name":"§b§lFunction §3» §brig.animate","version":1,"code":"H4sIAAAAAAAA/9VWTVPbMBD9Kx716mGAUph6poe2gWkOpR0+eiGMR5HXjooseaQ1bZrJf+/KToKdOMFAOfQSrNVq39td7RMzNlZG3DkW3cyYTFhUr1m4+BuxtNSCltxm5EQ+CPnCm74qiz9VLUKWcORLL7LOBmfx+aer6Oj45CAUJi+MBo0umo1YLjUIy1OMROnQ5LHmOYzoLPxGyym+MMrYaMTeHA8+n5y+H7EQaYsMH7XMOUJwIbMRm9+GErmSItofLx3IGjYBQIsJ15gTdJwpSb/mHqyVicejY01fwvTWm9nYqMRvLmn8mlBORGKdXmb59IHbJaALcAKBlVmApvp0BQiZSkgClFTpoDAO9taYm3FaOkFZVZgOrbwDnFhTZpNWYmGpE7CUQ+U4D59J8wLckqgDBQKl0QHXSWCBekE/wdSUNigs3EtTugenf8T7dk6ES43RYSiTqFl/p2Wago0h881l83nInDJIfaJk21eu0DGoxp3zF8jfxIRsOC38N9dTWhSqtFyxKOXKQchM4TNpGBJwwsrKSmdONUqcBsNBA/ygL3huksq8wMff+GT8rz5EG/6wLzyn0XgZej1c/jq0GLztywAf4HWZPxn+SuYQSF1PSgP/qHf3NYIt1kkkkPJSYXzPVQmrEIu9doCDCnUra7TlBulhhWlUXbcO9u822I9VjDxroJtlsDOP6PnTNoV2wReZJKC9AouFSzIlrlKsa3Tjvhz7CVvEZiRFe7zWTFYR6VJ50gOqjn1c6GuntaKt9IG2nDBV5f2w75zfzLejEWvRscuVIF0RFcDg+no4cFVF/JI8BnU3W/Pp810V6MP2PAVXKu73pHVmWqlL7xQ7Qyw1YkuUTa3pjLIY9S1BNhWjMwhuj7A58d31WM7bljBHW27injbVI7TrRvp7EJvxz45Wtdr9SCCZvvbNbrH54TVm6E7zAv3jw5EexXGJ/uD5t6sGTcsFPZYeUlrCIBOF1w3pMjZ/ZnleJ7Pvik/BnvvjLy72o8N/Kf/A7qHfHLdOQd/vpxP/XTfq/1O8OO7MQihTvyedafT0v53/BUkWducoDAAA"}'`,
@@ -161,6 +299,7 @@ export const DF_BASE_HELPER_DEFINITIONS: DFHelperTemplateDefinition[] = [
 		displayName: 'Animate No Reset',
 		functionName: 'rig.animate.noReset',
 		category: 'core',
+		icon: { model: 'minecraft:sniffer_egg', usage: 'runtime' },
 		description:
 			'Sets the rig to the specified ticks pose.\nKeeps the rig-entities selection active after animating.',
 		codetemplateData: `'{"author":"NineOfGaming","name":"§b§lFunction §3» §brig.animate.noReset","version":1,"code":"H4sIAAAAAAAACu1bbW/bNhD+KxqHAvWqBXFenEZoB2RJugZbsqJJ+6UuDFo6y1wo0iBPaTzD/32g/BJJ9jmW7fRl8JfEkSnePcd7Hp2OzIC1pQ5vLQs+DZiIWDD6m/nj3wHrpCpkPuMmtiwYMIGQjEcjJNkVd1f2h88ijnwyigVscPamdfX7TXDQOKr7oU56WoFCGwyaLBEKQsM7GISpRZ20FE+gyYIB3KPhwadBqKU2QZP93Dg7PTo/bjIf4R6DJjtRIuEI3nsRe1faew8WsMmGn32BXIow2G1PRjbZ0M9bAhV2ucIEFLZiKRS29B0YIyJneLddGCu1cVc/DdpaRu7LiT9fugKhyfyyn7Hh/QcnrwGth13wjIg91NlH24NQdAREHorw1no9bWGn5Llud1IbcoTMpkUjbgG7RqdxtwDMT1UERgqVDRz6K7r5J0Bv6uevoFCgAOtZkBCi0MrjIYo78HgHwXg8i7xQ8Ya8/jz0Q50qDPZ8EQX56FslOh0wLYjjJhuy4dBnVmpkwe7QL2VeT7VA5lLP5ZFLyIj5DPs995mrPvNZT6aGSxZ0uLTgM91zAHMXIrChEdlVFrBzF4u+d3GWM15f1niio+zy2D7eY2X7l26Kovm9Zc27dVrP+ohjLgEKHuwv6wE+mFdpUtn8jUjAE2rEk5z9g6VXXyGYXtmJCDo8ldi64zKF6RTj74oT1DOrpNdo0hmnLzKbWo7iNsf7wxnv27KFPM5Z15PJ3jiLzn8eu6mt91ZEESgnxOF4SNRXPBFhWapz+dJwDBvPzYyId0YEhh2lM9VkmUPzRF90WnfcPC77o0Gl2DlLz+64eZ7RoLajdASW+cyGOluMVFl+B1GB1c7RKbKP3JzfC4vuJo5oRDtFd+PV3zc5lw0Pb8ElWiQMhMgCpntZhCZrrk1CIwy1QqPl4xDdY2sW44ierzKV/S0H1ntlXGR/izRYT2n0wAHZWahgdBacwR1I3QMzzYR3YBJhrfs6F7B3Rig8g3Yaz0GYS4hZBaFtn0SRd93jYbZ0I+M3cI/eR0ce7xJMLFS8ihOzIkI7caXVAwveirgrRdzFFQ3PqseiyGdSMbV9rVMVrWK0CunPjdEPS30J1vIYvGvsS1jFdKPIqtxtK7CiMNV7wNSohVwMpR4J2DJk/NZyI1O4sOdJD/s/nL50uSvPVN/LYG+FZis0W6H5SkLjqqnRBfeptiNBxdj93gqdtSCP3yQmgNyb20KFGb1rlCYZl92FF6lCGH56/aPK7uQtKX9Hlgzj8Vs93urxVo83p98GesBxRTFzFVIVMVu62myJaHHBOds4onPhxqQPmX8ipf7i/SUseqddruKMk9PVeKPNOQ+7s/Ghc2Fyy/J6O5mSzBwuZWu5JvHcgCYcjbhfe10mLTdiltkVWOF5N6uiK+TZrArObUA9Szh2n2eZhrVn2e/l6o/ai3qt0DIr9YCk5tG0vfeVKqXss4jGH1x8aju607GAl+XVr1AzbapmsIBrYCVwbEZd1gpcqcp6/VQRqM7gRRk/+ilUBPfPRzP79dov4wt57H69Vnsxb/je/OGHxPD9+cOPieEHhDP7tVptoeBsBvReNdCNaqDruxVRHxRRzyrkZlDvV0N9VBE1lUkU6sMi6mqSvjzqg2qoX1ZETaUShbpRRD1bVVdEfViN1o1qtD6qRuuXy9F6tqrfDGhqLQjQFK0J0CStKdQlWjeeCDVFawI1RWsKNZVJFOoSrY+eCDVFawI1RWsKNZVKFOoSrV+ui/q4Gq3ru9V4XSfEkiJ2nVDLMrOPnwg3tRwUboraFG6S2yTwErnra9dnBHKK3RRyit4kcjKlKOQlgtfXLtII5BTDKeQUxUnkZFJRyEskr69fqFFVBeUZUVWQNCfEk6Q5oZ4zdfn6xRqBnFwTAjlJdKouIolOQS8Tfe2KjYJOMp2ATjKdgk5mFQW9zPS16zYKOkl1AjpJdQo6mVYU9DLVSx3AUwMcwbUUN9eWXa9/8NDbWL8LmMVgURuQbIk8GoIqjdA5Z66kDrOW29X4eMIqkcoONf5v+qRYpUk6Px6TY37ENK75uUSHc+5BkM0dRnl0e2C34ObGNkBLmzbztna+EwWYHDx+uv7pHAuPNkz/ADwTIWZZYRdBd4elW7r9zxOiLzg2Opv84YM7m7tu/z52p2FzPo1X+3p6Avxa/DvajzIxYG6DtHJ/d3dVHf6K+/8XyiJXIRQ29EU03f/XHS/ZnvzcHgDYHgDY0HMj075+azz/ivVjmorI28ju/qPVUfkBcZr989JNtqpTiZyK52YeGnMPVWXKM/oxhV+o+5c8nLW7sPh7VMj3SscLhEQwp1pFYrygNm2fPMj8omNum46Q5HbxU2q1uNarIH7LbT5DlgZfkRbfEP/16hzYBPcfewMoVU5nwvYK/6fzDVwuB7eS85L3pzv/8xz/PPwPFey7TtI5AAA="}'`,
@@ -170,6 +309,8 @@ export const DF_BASE_HELPER_DEFINITIONS: DFHelperTemplateDefinition[] = [
 		displayName: 'Animate Location Nodes',
 		functionName: 'rig.animate.locationNodes',
 		category: 'core',
+		icon: { model: 'minecraft:sniffer_egg', usage: 'internal' },
+		hidden: true,
 		description:
 			'Updates locator, camera, and interaction transforms for the current animation tick.',
 		codetemplateData: `'{"author":"NineOfGaming","name":"§b§lFunction §3» §brig.animate.locationNodes","version":1,"code":"H4sIAAAAAAAACu1Y3WvjOBD/V4yOwoYzodmPLmfYh17b5Qq9ferdS12MIo0dUVkK0jjbEPK/H5KdxI7z4bTp0uvuUxxFnhnN/D7szMhQavZgSXQ3I4KTqPxOwuozImmhGAkJNZkl0YwIhLzajZD7FXeX/xISTpEudpGIzC6/Jt/+vI0+nn0ehEznY61AoY1mMcmFAmZoihErLOo8UTSHmEQzeERDo7sZ01KbKCa/nV1efL76IyYhwiNGMTlXIqcIwY1mFIVWwTfNwcZkfh8KpFKw6HS42BuTeVjPBYqNqMIcFCaZFAoTPQFjBHepT4eNvVIbt3o3G2rJ3Y+Lir6PBEJMwvVKM0OnqzL/GXOKYAPpytQmDBjNwdAwoIoHQiEYynz5aKiyqTa5DVJtAhxBwApjQGFA/VH9JsEe+mtn1MO0sIwi+OosGvEAODK6yEaNFoSF4mCkUH7j/H4eMl0ojD6Egkf1E1sl0hRMAlkWkzmZz0NipUYSnc7DtXmPVQKyNnA3PQcDTkKC07G7pmpKQjKWhaGSRCmVFkKix+44tQUOlhnhV0lErhQKnAbXl7Xkg67Jc839cpUfH/Hg/H+7EM3077umd8N6Xvbz5bgbFXzoWgGu0qsiPzj9rcghECXWbC3/x87Td6gerxfBIaWFxGRCZQHLENVvzQADn3Vr1WiKVtHXPqeWZd82VP+pVf1QJkizWna97IApwJVPMxfZBn8JzkE59WPVDj5VNBdsXR9rcDlzBKtCEyOyfkli6MtKr7xcEV/VJr01MAaK+xV3Qk27gZXYkJBYpv0MHO13MnljHFf3yYSad55TvX4VNxHc1mIXytIJ8J1c7djscyn19+BGWAwuRlRlYOtd/6rNFWWjdpdafW/dsuqzoewBXGO5MMCQRESP/XArtC5CbhuMSJOyV08ZzHpDHSjKBXfVKy+rLvd2tvi0ec5/qbl6FBbtASdV2uTbz8molEk319+FwduFrT0bjAtd3xKljbmNUSp53hKkrfJP41dbqzcK3UlOcfTODx17J/5zH0IkqAxHvd8HvZ3SvDHdp4YerumT1JQvnWc7LCzgEfHvrwVfKottMqCPG9CziQuHTK0DIgdNcn15OZb4J6XXwIu9kH6/DpjCP9neVPftkh0mtYWturN3/z5FfpZVlo/jR3fKMuwvo3xRoyyb/D/3yfIQb9Im93Hrl0se6JJlQ20D/cf1yM5o/Aktch+cO7Ji+Xq8lRUbjfaizP4qfLbtM08a7Orfr6P7by32azfhl3Dctt29oA3Xer3fi1+L7daKfpPe24lcP4UBryzqyG5ca7FtM+G4vnwYXAcNor1VP+4E8S2vrde1e3+Apd7P/wMLRXtlYhsAAA=="}'`,
@@ -179,6 +320,7 @@ export const DF_BASE_HELPER_DEFINITIONS: DFHelperTemplateDefinition[] = [
 		displayName: 'Remove',
 		functionName: 'rig.remove',
 		category: 'core',
+		icon: { model: 'minecraft:barrier', usage: 'setup' },
 		description:
 			'Removes the rig instance.\nResets the selection and restores your previous selection.',
 		codetemplateData: `'{"author":"NineOfGaming","name":"§b§lFunction §3» §brig.remove","version":1,"code":"H4sIAAAAAAAACu1WbW/bNhD+K8QNBVZACJy9pBiRBujqdMuHZkWS5kscCDR1lrlIpHs8ufEM//eBlJ3Irq3YeRn6YZ9sUad7nrt77nhT6BdO33iQV1MwGcj6GZL5r4RBZTUkoCj3IKdgGMu5NWMZT8JX8SGBTLFaWIGEafdDevr7hfzl4M1+ol05chYtezntQWksalIDlrry7MrUqhJ7IKd4y6Tk1VS7wpHswQ8H3fdvjn/rQcJ4y7IHZ1i6MYozk/dgdp0YVoXRstNfvO/BLGn6R6uHynKJltO8MJZTN0YikwW4Tn/JtnAUTq+mfVdk4eWCxdehYexBssouJzVZpeYFD1GQyYWxnpXVuLfC1PUHldeKMWJ4JnODPCRX5cOlQJLKZkiFsdFwljyalkeuWXksULNxViibCULPjtCLiatIjAjHxlX+3uiZeF/PEu0qy3I/MZls5ttbMxggpZiHYsJsloAvHIPszJIVhY1sikVDYkEvQXgZJMCTUfiv7AQSGBUVqQLkQBUeE3CjEEnjIEOvycRTkHBs2fBEnHQb4Pvbgpcui8dzfL7lnfE/BhfL8D9tCx8KoPke31axB3GgqoLTsSoqvHMxf7fsoBNRNxJmqr7hex4xxaUi8amiHCEB6zg4OyTMjjriMGjv6K04jNo8+hCcisNM0U2qvlTq6Dg+LxtdUIWNBPz8TQL6RcoqbwTgFnyi/5AClYOEEy/+NFmGNkwsPTfJJlaVRq/OtEbCD4JE576BTL5HsZEh8lg3FD2G/NLDc7E2Wq3bor8gAa9drF1ollb956GgDV/zmp/fNfSFohxZfP580vUxIeERJHRrPSzpO4R7l5+3LxUnht4y6HcJc62jUJJXY0U/xoZ7Xf832eu9NQiV9WqM2eZw/0DuGs2XoT18W+ghsanr//2C0S8Rq0dRqN9mVtHpJFUL+awSW3JYX0dNLdypZTOCGTxF2YuJtHW9W+bSg2IlpW8woGWGUIf43Ci2/mIeOiqfQdv1WN9Skq3Bbh5j7+xEjBSxcAMRERYT7aNiPRRn+KUyhGGHaU62OIEvFfk1YTXG26+Pn6e5dYTivYpnu+IeLJfu/qu2EurC1QS2qSEGst+3IO5nVJsydnNZOK3YkW/dWXZzqVWJpHzrGrKbR2MZqS6+f+Tl/n9XPKorWq+ulRvCI7/UXbDNlrPEJl7JJ/64HHFY5BUzmX4Vl8vTvy6esc+feLPvHtmnQk2QTsPnT072g4vgufkH2xfA7+sa/s+rsXbR2rXntrS/nv0LxdZXxGMRAAA="}'`,
@@ -188,6 +330,7 @@ export const DF_BASE_HELPER_DEFINITIONS: DFHelperTemplateDefinition[] = [
 		displayName: 'Select Nodes',
 		functionName: 'rig.selectNodes',
 		category: 'helpers',
+		icon: { model: 'minecraft:purpur_block', usage: 'runtime' },
 		description:
 			'Selects the specified rig nodes.\nIf no node IDs are provided, selects all nodes in the rig.',
 		codetemplateData: `'{"author":"NineOfGaming","name":"§b§lFunction §3» §brig.selectNodes","version":1,"code":"H4sIAAAAAAAACt1VUW/bNhD+K8INBWKAKOpuSDG+dXHSGdjysLZ7iQKBJk8yG4rUyJMbz9B/HyjZnSVHcdo0aNEnScTpvu/uvu+4gYVx8iYAv9qAVsC7b2DbJ4e8thIYCF8E4BvQhOU2mrBsT+Jf7QcDJUjsooDDZnaRXf72jv9y+mrKpCsrZ9FS4JsUSm1RepETl3UgV2ZWlJgC3+AtecGvNtIZ53kKP53Ozl6d/5oCI7wlnsJbNCgpuXQKQwrNNdMkjJb8xWIXkULD9hHQyqWwVKKlrDDaUuZW6L1WEXC66MUa5+Pp1WbhjIo5dzw+LjVhCmzIr/BiPSQXElpiEiqUOteoEq+LxEa+zweE3SKvgxSELVQgr2+Qlt7VxbJXD6utQm+0bQMb9oXs5nliXcskmc9CIjwmlXcrrVCxJGypC2M6som2bR1eF1+J93XDpKst8ZdMK77f9mB1nqPPsChSaKBpGATjCPiLhg2kVtkMzZ7WonCiAhUwoHUV34VdA4PK1F4Y4LkwARm4irSzewcKg/S6PQUO55Y0rZP5bA98+lDw0qn2eItPt/TZ+H/GFH34lw+Fj+OaqzBGgHzdw++++/CXW1Hswf98AL8wGYliD9/tfr+IJUV8UQCHeUh+10qhjYtDbkPU2opSy+Fq2Sv3NApkmxui6jpJtk6HlsxdC0rn2Ur44yuqCxrtXJCubV0Ua09/kdOnIv7Qgd7qf/H8n1qYfVJeyBuMTVfaoyTg4Kq2/u1ErPPleA0B6ZFF3FvCcI53ZokNf7YS/qQV86R712ryHKMzdA+htkGsUPWs0uvTG6SZlvS3MPV9s+sGnLnFh6cqvceq8/j799FlY5Sks+SduYNPL9VfSLW39wpAGtd54iEKeGoVDyVg6/Iwz3R8oN+t8L+57ocg3e4dgDzTVuHtyXZQbDrprflR6zyxc34E4zzx6uxxP/MoCKMVxvl4rFDQo4z8aEkf3QeHqh2/2t/5+v+b/bUx7mMSO5CcLYUt2uZ96s+F8+dCLg+7cXDJH/zy8IWyS/md3KV32x0t+fXJ0dXC2pNuXJPJ+PZ9XVVo1XAlHHXO8VZ9s+v3uvkPE0KaeHsOAAA="}'`,
@@ -197,6 +340,7 @@ export const DF_BASE_HELPER_DEFINITIONS: DFHelperTemplateDefinition[] = [
 		displayName: 'Spectate Camera',
 		functionName: 'rig.spectateCamera',
 		category: 'cameras',
+		icon: { model: 'minecraft:spyglass', usage: 'runtime' },
 		description: 'Makes the selected/default player spectate a rig camera.',
 		codetemplateData: `'{"author":"NineOfGaming","name":"§b§lFunction §3» §brig.spectateCamera","version":1,"code":"H4sIAAAAAAAA/8VUTW8TMRD9KysjJCqtAi2oFXukTUUPLRJEXJpq5dizGytee2WPQ6Io/53xftBN0tIABy7Jejwz77358IbNtBULz7L7DVOSZe2Zpd1/xopgBB25K8mJfBCqzpu+GkuMag4pkxx570XWzdV1fvdpkn04vzhNha1qa8CgzzZTVikDwvECMxE82io3vIIpxcIKHaf8wmrrsil7dX51eTH+OGUp0hUZvtUgkCMklxTh+JRtH1KFXCuRvZv1TmRNhyBgxJwbrAg+L7WiX7sE55SMmBQ29CXcaL3fzKyW8bKn8mNOuojIPsXS8fUjv1u+AJ/gHBIPmqiCfCuh4EFjUmu+Bpf4XgFPnCoT0egY7QmxsyJ4QV4NBY9OLQDnzoZyvqMzDUaCI0mN4/ZhS3SDwewsVTIbyvJGFQW4HMqSoNh2mzKvLZL8bbrXzdrkoAftjL2JTZZkw3Udv7lZ06HWwXHNsoJrDymzNSprBgYJXjjVWClmbFDhOrm5GoCfHgteWdmYO3xc4R/j38YUu/Bnx8K3Tfo3/HZgdwm8PyAw0znycsDA9vHXMWmkQNcZu/HJZyUlmLidonORa+KrxP7+DgSfxxHpcjMav1E/jS071vB56iFQRb7k7uWnoHXaK18Eek03b5o2nrTfSp6M2rr61tAeTkYhNKPmhW1qHYznS5A7IxtF/FL9nbvxSnn0kR3SqswCxsC7L5OBHscFrVDkphxJJhOlN48tNdZVz8sX1qCz+gn9O1S+AgZnfosqtG3beAxs+2TkXf4XwLun0bo46X+f87809Pg1mLgw2IKS6gfJNRWROq9MyQ7rARNS2PTg6QocbMdzCejyJxH+7TsxBwAA"}'`,
 	},
@@ -205,6 +349,7 @@ export const DF_BASE_HELPER_DEFINITIONS: DFHelperTemplateDefinition[] = [
 		displayName: 'Set Variant',
 		functionName: 'rig.setVariant',
 		category: 'variants',
+		icon: { model: 'minecraft:painting', usage: 'runtime' },
 		description:
 			'Applies the specified variant to the rig instance.\nResets the selection and restores your previous selection.',
 		codetemplateData: `'{"author":"NineOfGaming","name":"§b§lFunction §3» §brig.setVariant","version":1,"code":"H4sIAAAAAAAACu1ZbW/bNhD+K9wNA1ZACNK0SzGhK9DN6ZoPyYI6zZc4MGjyLHOhSIE8ufEM/feBsmzLL7FsJ1kxwJ9iUdQ999zLI/Eyhp624t5DfDsGJSGeXENU/Y2hnxsBEUhOHGJwKjnySDfcKW4IIuAu8RCPQRGmlRXCtFwJ1sqL6dPTezBufepe/n4dvz199zoSNs2sQUM+HncgVQaF432KRe7Jpl3DU+xAPMYHcjy+HQurrYs78ONp6493Z792ICJ8oLgDbSRW+dWB4i5SxLUS8XFvuqEDRVQHQCMG3FCKhrqJVoa6dojOKRnwjnsLe7V1YfV23LNahptTN74NFGEHomX3EsdHc98+ZplW6BkNkPkMheorlGw48ZaRLW84lTBlPHEj8GiJgu31cy84YQnuyal7pIGzeTJYYBjlRqLTypQbi2hPf7+gR6rcRY2ClDWMG8kcerIOPRvZ3LHM4VDZ3M83PZPfd0UkbG4oPomUjOuJ8Eb1++i6mCQdKKAoIvDaEsTHRbRUe5npoq4VX6ikUJISIqBRFn5zM4IIMp07riHuc+0xApsFJrUFiV44Va5CDGeGFI3YeasG/npb8NTKcrnCpwfaGf8imFiEP9kWfjjr2wUHJPZ5rqk75DrHmY3q3qKFamsJ/qjf5PIVt6eSMff6zYrXPd0lntRA7fTpTwEiuM0TiOHcs89KSjRBgES1RY4MT5VYlq5alE6Lu6LEXKdzHgN/V7f4W7O+TZ5YitGsGyACL2wZ6FDaG6s1CdGv2aoS1J613zV3CRL7+vW85ctIhEuIoVXLyLQaN/IMBru293edatnwa+huMKT6y/G64e7sQXkK7nEip3o5BQ6Xf13vGcnwuvlpyN3PZd+8OjJWoq9FNTeeD1EuBLbusuPivuQllUMRomWzsmqq6BrrUniUobCGnNV1ildOGWphL0+aGYUX2yqlSfu+L3X4Q40be+9CDj5Ii54ZSwxDKI821szj/dLCIWqboZv1zBW6VHk/qcr1fJZ511pnVWEex/4oJWtnXKCfgV/jQ3g56xzZBbpEmWQfJ3YRjEtr5nrxWSUDrZIB7Qn8dqfIT9pxit22uZH7gP6yA+iZc3ae6gv0nifI2jTSuA/0RqFc0xVfkHJnGuRjtReFthNR36YZ18mNzvHcn6UZjQ76srO+DPgQGTcjVpI+CM1BaA5C872+a8rfSr46wnC4UP93DTqvTrELMqTkTINsn6WHz6CDOh3U6RnU6Yd9j6nzYcDWh9TGkcC6A+jTBGrNufxPpJYSVDbS07hfLn3vNQZgKzWvjG8W8dWR0X5JOmmI9U7VhWHK8oKZe2Kpvky6mj/6m+p5pxgLrnV3darOs0yPbhZ57hOqcrz5tABNh5SPWHm+yt3FTkPu32zS6uaz47N81W0193tOZVw3ybvSfITuMnj0H7FoDPYWXd84/Wyrf3Dz1HO1uE2ertI7frH31LpsTP5ZEGa236+mNqvTlvvvin8B5n1MzCscAAA="}'`,
@@ -214,6 +359,8 @@ export const DF_BASE_HELPER_DEFINITIONS: DFHelperTemplateDefinition[] = [
 		displayName: 'Apply Variant Nodes',
 		functionName: 'rig.applyVariantNodes',
 		category: 'variants',
+		icon: { model: 'minecraft:painting', usage: 'internal' },
+		hidden: true,
 		description: 'Applies resolved variant node items to their spawned entities.',
 		codetemplateData: `'{"author":"NineOfGaming","name":"§b§lFunction §3» §brig.applyVariantNodes","version":1,"code":"H4sIAAAAAAAA/+1ZW2/bNhT+KxqLAQsgGM1apJiAPaSxuxnY8rC4fakLgaZomwtNCiSVVDD833dIybEk32RLtgN0L4lEkTzfd+6k52jEJXnUKPg6RyxCQfaO/Px/gMaJIPCK1QQmwRxDZ/lseHIjdpV78VGEDV7OgtF591N4/3EQvL/5cO0TOYuloMLoYD5EMyYoUXhsApJoI2ehwDM6hLX0u1EY9ieSSxUM0Zub7t2H3m9D5Bv4BAO3ccxT7wtWDAvj3cuI6iFafPOZwZyR4O1oORFG/aIgKsgUlswAQjjhDP7KJ6oUi6xcWFacC7Lt6Nf5SPLIflzCeZ4CNwBThTlROC1jZFR7imrJn2jkPeVwBcD1nA49Iz0zpUx5OsbPAuYALmZgVadCR47GiSbYUAdEG8UeqZkqmUymJbZ+IiKqgJibuPi2ANCJMME7n0VBkZwWbDymKqSTCYhCi4WPNJcGlLDwK3aNRUh5wbDWStbcEYyZNLbPWKTwEvNEYY6CMeaa+kjGhklRGAArEcXcKKzpWaqp1+8WhF/XFT4DHfKVfPPdHCz/b7tFWfyvdcXnpmwGIHffgvx3deVbF9Ir6Zzpw8Xfv7hhAcH7NQQjHho8KUCQyw0GKqEWA3wNUF97f7IoosLmCZLPiFLAy0g1kxQUfmNdNN8aKTbpYBvZuWZcXCOHaFNW0tSEYIj9iSmbtNmEvTzgYIImMtemoKWAsBBfON0pCmH4l9X4VmSKxjDpSGDWtrvQVA20dZMdnNbjrKaZbzmXz55l791BIp04IS+6+SRVD5PpuibWLL62ZKVLhQnkNouEKUpgCUBxbpU7+3LL07iFSywDK6kNExxigSyFVDZxnIsJqqS8P6jpwxYDMM1WdbDxubWxkQigwUaqkgZKXH4/wAWEVLPtjIkURkm+gXJJ4MMji3fKJFxqWldoM6+zvtKPXofLwZdGDtdME64BSj9/hrrcVBu2nPwMX35xXnyVPbPoqkPXc34iNIYebae2jrLcugK7jJgvmENSPU3M1tNgCZWD09e9WWzSHz0MO27s1JFYdQqoq3lg7Wh4COY8rHcW2wgqYjrmOO22RXCPqq6rvR14BBy2IABWMF572crOGWcoWo34ro4jzdhGdIwTbrbz/ak9ws0j9ezl8jjdVyrAAzXu5Gnd/8Eo3SD3XTRXumqaVb+rzlnMsTXyTsfLtHEQqJGNLkKulUJXq6aci94BZ/pa5Oq0UhVutzHkwKja3+2N1H2H2jbKw8FXHZdsC/+hJlGizWTHYVUoR/+eWYm9lQ9tBZf5WZivOTK0k4RFXiuJeHm5Wrt7vXPX9wN3f2QAPDWu0FmN2zmn8WqXy1asD0/Wl234WrF5VQX7zF/i0s8b8X72u80hhmt6ElkDvq8WVU4SOruH2HySaJgpKNe7U/fZ2vrTeHgG7Rz3cJd3ko8Wyv9ecoSX2F8UfxAnGQDV1+8jr0BR7aXcs590dzR/lbYTeCLg/h/sePTBFSEAAA=="}'`,
 	},
@@ -222,6 +369,7 @@ export const DF_BASE_HELPER_DEFINITIONS: DFHelperTemplateDefinition[] = [
 		displayName: 'Move',
 		functionName: 'rig.move',
 		category: 'core',
+		icon: { model: 'minecraft:sniffer_egg', usage: 'runtime' },
 		description:
 			'Moves the rig instance to the specified location.\nResets the selection and restores your previous selection.',
 		codetemplateData: `'{"author":"NineOfGaming","name":"§b§lFunction §3» §brig.move","version":1,"code":"H4sIAAAAAAAA/+1YbW/bNhD+K4KGAQsgBE1apJiAfdjiZAuWpkXq9ksdCDR1lrnSpECe0niG//uOeov8JsuxjaFAv9jikby7514ekZr5Q6n5V+uHX2a+iP2wGPtB+R/6o0xxGjKT0CJagzApV9NTLnG78kHgxwxZtYqks951dPdHP3xz8fYs4HqSagUKbTgb+BOhgBs2wpBnFvUkUmwCA9oLT2gY6edaahMO/J8uepdvr34d+AHSFAne6Ufw7kUy8OcPgUAmBQ9fDatZkgZN7aD4mCmckN0okYJ+absxInbGaFtzLRl00i+zoZaxm6x8+DYmQOTBsm+JYdNFx6yHY/CMSDyhLDLFwUOdy2wKXIwExB4FlqHQ6nQJgR6OMktTkNu2aMRXwLHRWTJeABhkKgZDWPKF8+CF7t6DBSz8tSCBO5c8pmLPACWEfrypzoyXGngUOrPPiw7k98OcHM4UhueBiMNmHqwSoxGYCBKXZH8+D3wrNVK+COxi3aUqAtkoPFdFrhxjkuE0dc9MTWmQysww6YcjJi0Evk4dkoYgBsuNyKW050qhwKl302sYP+tqfKLjXFzaxydss48mWzH/zmlYtH7e1TpV17PtYrAb9tuyPBvGX3c1jlQjqTbYI4O5jtoTleX8ACOWSYwemcygVlbOLao6y+3vFLZ+ad2rzT9DeLMCYSgjZEnDsK70XDtjznWaDv0b6/0l4hgcGMbLJfGU3BR8mScb+bpwBV7q9okQTidED37uxTqapV6kqJjtTFssWgpW3Zs0Zbkuck/91No7iUtDQ1eZqY81GfTJFUDv06ebns3D4Ya0oldkcaE3HNg6Or8dCye4vhRgd4G5VpFLyM8080verCfFs4hPTtdYyJRljxBvhvsnYE9w/OyK2rZBd4GN9PCfI6JfcKygMZe/zV7lSqcRq8rnJY6taftuDvaETfsfmmxR1Vhdhcf1vCDIzrXUlTP+Bki9y8wY8tG711jBq4FXVLURzgqTrNu6S7TEaI++W26X/AijTSTi9kZZSvdnZq6ehMVmkxjG6bjgTApDGEhEypovDm0mm1EZSIHhy5PvUBycTLpGZ/VEsbm++vS+q8vrdyn1N++WIuld0uk2ySmhjvK1NleMj1ejtLmmqi3d01KpPA7Pb6TnMrS2kJSjk1NNG4TaUoqdctlKCN1fc5xJGXW7Oq11Iz/A7leV1TF0I5au8WjvkfPlc06W0gBuy31tFcWlLjhzQ0lt3dHODQdlPE5iw75zwitAHJzvOsbmB93tTHdFZEu2KwY/yO54ZLetP1Yv4Xseh1+vJ8/Lwo//kTtb7yoLdZF/RjoSCXe61i4RLt3BbuzVJEX31YchGjHM0G28e98/GAvvfZXbHdkHyaZg7tz2vYO99eb/UfwL7Tf+1b5c+xXnVTdC+e6ysfZmvWvPdVz/MP8Pbetbx6YXAAA="}'`,
@@ -231,6 +379,8 @@ export const DF_BASE_HELPER_DEFINITIONS: DFHelperTemplateDefinition[] = [
 		displayName: 'Load Animation',
 		functionName: 'rig.loadAnimation',
 		category: 'core',
+		icon: { model: 'minecraft:sniffer_egg', usage: 'internal' },
+		hidden: true,
 		description:
 			'Loads the pose or transform of the specified node for the selected animation.',
 		codetemplateData: `'{"author":"NineOfGaming","name":"§b§lFunction §3» §brig.loadAnimation","version":1,"code":"H4sIAAAAAAAA/7VWbWvbMBD+K0ZjsIIp69qlzN+2vmyFtoNR+qUpRpHOjqgsGUnOWkL+e++cOLHdl7kN+5JEp9M9z6N7UeZsoq248yy5mTMlWbJcs3j1nbCsMgKX3OXohD4BipU3/qotdKpexEzywBsvtM6PT9PLH1fJwehwLxa2KK0BE3wyH7NCGRCOZyERlQ+2SA0vYIxn4T44jvGF1dYlY/ZhdHx0ePJtzOKAW2g4t1xG340qeFDWjNniNlaBayWSz5PGB61xGwOMmHITCkRPc63w087AOSUJEo+1fRGWrDfzidWSNhsmf6coC3n0GeaOP3Tp+ShMISqth8i6CL2Nz6wrIpvVG74EoTIFMjJWQpSRD5lBgwho5Y243Z46O8kqLzj60MoHp+4gTJ2t8mlHfFwZCQ511o6L2wVqqExI9mMlk7ZWb1SWgUshzxGKLRYx89oGvJNF3MtwaVLQrRRTvtDswFc6oD08lLSecYeLUleOa5ZkXHuImS1JTcsgwQunaiue+bOMsUHfG4pe4P3pDXi4D28Gv6AQ0dlxC/7LUHhK1Hbo6zruMtgfyoAKaDsGlxRhg3wwFDlz9L2GNlXd/5BxTGU647qCdYTVXvf8Xg36ItfgqidUT2vIDdevQ7nWdI6oBbYhPHo742sK66MS3Kapo6wnY/RExkSngectCrYJeIUgpAF3E3bmo19KSjA0n8XKQz4gXyX6E7xV3SMaCKvQzKl8V+PIWhciq9k89xKoLF129z/egqVTf04gzkfc+VS37M6uWK7oVnaWP6mUd/CgF7ZOUGU8n4HsDCUivlZ6zd3JvfLBE6WAw3BSBTp4+fuqJcJxgUOSCCmH4xVNGN606gAH88uaBdc6HfYE/kfZ/foYBEUY70B7OnufReu0VBONXpzOHO0VmgSB+BcccyXAv5okofH1HJolD2Gb0myesBdkvPP+35PqgZffzN5X733dJz8hnGOb1LMI/08sHgG5dKx19AkAAA=="}'`,
@@ -240,6 +390,8 @@ export const DF_BASE_HELPER_DEFINITIONS: DFHelperTemplateDefinition[] = [
 		displayName: 'Decode Animation Data',
 		functionName: 'rig.decodeMatrices',
 		category: 'core',
+		icon: { model: 'minecraft:daylight_detector', usage: 'internal' },
+		hidden: true,
 		description: 'Decodes compressed matrix or transform animation data.',
 		codetemplateData: `'{"author":"NineOfGaming","name":"§b§lFunction §3» §brig.decodeMatrices","version":1,"code":"H4sIAAAAAAAACt1W3W/bNhD/V4QbCkSJ0tpx6mYE9pCPdR3Q9aHN9hIFBk2dZDYUKZCnzJnh/72g7NiSEttxUm/FnmxRp+Pv4+7ICQyVETcO2NUEZAJs9gzR/JdBWmoBEXCbOWATkIT5PJowr1b8V9VDBAknfh8FDCYX7wefzi7Zcf9dNxImL4xGTY5NYsilRmF5SkyUjkw+0DzHGNgEx2Q5u5oIo4xlMfzUvzh/9+vPMUSEY2IxXKAwCQanWuacpNHBBScew/Q6ksSVFKwzvA+NYRrVt0ItRlxTjpoGmZKaBuYWrZWJ37kzbMQqY/3q1WRoVOJf3gP6eyQJY4jaQDPL79ooXeBZW3QOkyDnZOU4MDYgy7VLjc0DvmDhpXvdomGGaekEJ6wAOLLyBmlkTZmNGiyjUidoldRV4PR6GglTamK9SCasTsppmaZoB5hlMUxhOo3AKUPAOtOo5WihB6hqlnp/gIFFVyqCCOiu8M+33EIEhSotV8BSrhxGYApPqbaQoBNWVqvA4PMsx3L37lN3X8jlPV+CoDFtDeK0oXwNzNFTwdxyVeK5F3qJRJdVG2DKS0WDKmKRZv6umaTbr7ZeiZ1s+QD6Xz6tCwq0tfpJrU+4pNF7QGOoBsSzGgRzn/DSlug58AwY/O6CDzJJUPuuF/OI5E7zXIr2XKip1vdlN08NVmavk6oD/vBFL9BBBeexAePQC2U3z5hZUEu/4R2hgwicMJUBvgnW1vWjWdp1tSLbwzpdremfl+8PTxaino+4dUh1Sb+QlTq7NGdzBm09atq+fa6XX2SmMXnmrjNHV3y5Kzv7xy82c0NJbGPiBjHPuMP+8WzUb6Vl48MfujPWGvIdpfztH1l4PWan5VZitj7dkZyqGog7rswGr4/S0UfUGY12xcnfKKrKfTKtR8+wVzmn0d6rW273lmdiuN8LV3P7ZVeUFveTlZQaOM4tckKv9GpAFgvk9Ew88sXqdtY23CZDFOrwTfVvZnZ42A0bl52GHMFnrjMMalpYLm6qcyuRFgUBA1NUnTC/8MzF2ZGbsyvzj+Pm1//YzVp7/c983EYJqRMc71XDNKqJI8P9eqEf1F599dPooBeG+92jk4NnJzh6aYJuGB52O2/7J72jN91Op7NmQp4WBeqkuuqvtVEo4/Df8nHzdH3SObipHL6vFNfTb7YrBvPmEAAA"}'`,
 	},
@@ -248,6 +400,8 @@ export const DF_BASE_HELPER_DEFINITIONS: DFHelperTemplateDefinition[] = [
 		displayName: 'Update Locator',
 		functionName: 'rig.updateLocator',
 		category: 'locators',
+		icon: { model: 'minecraft:compass', usage: 'internal' },
+		hidden: true,
 		description: 'Updates the stored location value for a rig locator.',
 		codetemplateData: `'{"author":"NineOfGaming","name":"§b§lFunction §3» §brig.updateLocator","version":1,"code":"H4sIAAAAAAAA/+1WbWvbMBD+K0aj0IAJS9u1zLAP3dKxwtaNrhuMphhFkm1RWQrSOU0I/u87OU6xnTZpV1o22JdEOt3d89yLTl6QsTLs2pHockEkJ9FyT8L6PyJJoRluqU1RCXVA5LU2riqJt6o2IeEU6EoLpYvhx/js/UV0cHg0CJnJJ0YLDS5ajEgutWCWJhCxwoHJY01zMUJbMQNL0T8zythoRF4dDj8cnbwdkRDwCAU/Jogigs+GUTB2RMqrUAJVkkWvxysdlIZNDKFZRjXkiB6nSuKvmQprJfeQaNbURVgvvVyMjeL+cMXkJsOwkEeXYWrpvEvPBZCJAAOzggfKU5VGB1OqChEkxgY0sDJdHhjb7wRhxknh8ERU8A6svBaQWVOkWSvGsNBcWAynUiyvSqRaaIj2Q8mjZkhOyyQRNhZpilCkLEPilAEMvQw7hZzoWKhGJX1ZfH05ymA+8Wuq57iZqMJSRaKEKidCYiY+woaAC8esrKRoc6JBwjw4HTbABw8Fzw2vxDU+zODR+F+8izb83kPh6yo9jUDdrm0K+2sUxioGmjY4mJWDC1sITwFPI3Lqgk+Sc6H9zWS1Bp8jYcm6d7cR8aHvkdo1wQbsF1Wz1txIxeauGSCTeErt9imwVOqkz+Ps4MluVcbeci15r1/n1S0l9a7XN2ggfWCOmSrdhXZ0KnirbX0ct4H/pPZkJh04zxDwuowL8IZnXy8aMVnK8Bp5ftIKhl4wt1UC66pqY/P7U8CMBmvUHTloUTkXUFi9EZUp48RDYZ2AJ6QenTTy6AfFxrv/UuUbtMv37m8Of6OP9Qmmi3zdx47EOT3bfWwm8ZXRDh+LPNzvbZxbzwO619s4qZ4HdNAEPWj3yfdMJnCs1LC6SShz/xtnSzoPNjfO/a/NNwksu31uzg0sP2COccySbklWp3ekf+3tucfymer42MStPtS2PD7/Tv3f/Gn9f9GbF6z+Vfkbpl5mvYgMAAA="}'`,
 	},
@@ -256,6 +410,8 @@ export const DF_BASE_HELPER_DEFINITIONS: DFHelperTemplateDefinition[] = [
 		displayName: 'Update Camera',
 		functionName: 'rig.updateCamera',
 		category: 'cameras',
+		icon: { model: 'minecraft:spyglass', usage: 'internal' },
+		hidden: true,
 		description:
 			'Updates the stored location value for a rig camera and teleports its camera entity.',
 		codetemplateData: `'{"author":"NineOfGaming","name":"§b§lFunction §3» §brig.updateCamera","version":1,"code":"H4sIAAAAAAAA/+1XbW/TMBD+K5YR0ipFE2VjiEh8gHUTCPEi2JAQnSrXdlqDY0d+Gauq/nfOTlqSrsnWjU1D4sO6+Hy+5959nuOx1PSnxen3ORYMp+UaJ9X/FGdeUVgSMwEm4HE8r7jhK1LCqbhIMCOOLLmAOh8cjz68Pkn3D573E6rzQiuunE3nQ5wLxakhmUupt07nI0VyPoSz/MIZAvKpltqkQ/zoYHD4/OjFECcOtoBwWgAKR4fAb8gQL84S4YgUNH0yXrIANalDcEWnRLkcwEcTKeBXn3NjBAuIcKzOC6iB+n0+1pKFzaUiv6ZgFaixruDEkNm6dha5KUdgl+EMgSOJE1qhcyI9R5k2iCAjJohGExBRDDkueaGNs0jAX7UB6go3212zUY8zb0Eij9pZZ8RP7qZG+8m04YLEK8YNWBsZF2cLsMQrl+4lgqV1i60SWcbNiE8mAIUXiwRbqR14ZpGshblQIy5rcQ5BC9FnQHOzInwTNYNFIb0hEqcZkZYnWBfBATUC45YaEalw5igait4OauD964LnmkVyhe8u3Nb474OIJvzT68KXsbodfpnLTQX2rqvAMnUGgBjlrVRRPtYkz4iXbhSzbyWs2muK6kf8Vt2d8ZdUP6nQEVvC/zFh/5IJYzlyZFID1is5IDtoDrspfmvRG8EYD7YQWnGwGWgp6HprqoXsICR5JRpDge36WIyld3FUZlOHExn4xlzd40qmNZcFmMewsxPTsFd+C9bbLfPCloRy0dvVwC6CVZbqGCKvLDnnrFF0wYiV1V+JOboQ1tmgn4NiH3sXDn74eFKzyBAKTSBoJwynIAUcy+uZoE3e7gCqlTNabvBAQ5XP3HmjOlGp1JZfF9ZydwvHg5CaH0Ob6+xc9xO8fjN4Lx+y8Z0yLnffjQ3jsYA75mJnOz/C9aks3IJ5stfr7Lh3Afm019lj7wKy32v0xEaGfJmKzL2SchArCGj2f8p0OnO/O2XaL5hPwtHp6ob5rF05k72C5orXA7Lc3eD8S9dNy8k7iuJ2bltOnldcOP9K7J/dNPbfyK8HEPl7nDO8jyP5DaaMvzVTWJgLKbyzxj8epMHli+P0NIzcbSaUz69RdeZmVmwYzltbcEPBgbDFyaf6TA/wPEThS/RsZ6b9Dc3vpdO0l+xxeHysivYd5wU69MaAZahWoyt3LZ8hrU5or97a0W183Jnga3MztJDtx+azxW9g1imwnREAAA=="}'`,
@@ -265,6 +421,8 @@ export const DF_BASE_HELPER_DEFINITIONS: DFHelperTemplateDefinition[] = [
 		displayName: 'Update Interaction',
 		functionName: 'rig.updateInteraction',
 		category: 'interactions',
+		icon: { model: 'minecraft:tripwire_hook', usage: 'internal' },
+		hidden: true,
 		description:
 			'Updates the stored location value for a rig interaction and teleports its entity.',
 		codetemplateData: `'{"author":"NineOfGaming","name":"§b§lFunction §3» §brig.updateInteraction","version":1,"code":"H4sIAAAAAAAACu1XYW/bNhD9K8INBWpACJImSzEC/dDVKRYM64o0GTBEgUCTJ5kNRRrkybVh6L8PlO2EVhwl9dq0BfrJEk3x3nv3eDwuYKStuPbALhegJLDlO6SrXwZFbQSkwF3pgS1AEVar2YRVOxK+al9SkJz4ehYwWAzf5u9+P2dHxy8PUmGriTVoyLNFBpUyKBwviInak61ywyvMgC1wRo6zy4Ww2jqWwS/HwzcvT37LICWcEcvgYiI5YXJqCB0XpKzJoLlKFXGtBNsfredl0KRxHDRizA1VaCgvtTKU2yk6p2QIuz/amKutC6OXi5HVMvy5RvNprAgzSLsoS8fnXYg+oTEmnqxDmWgreMCaTLmuMSmsS3jiVJmoWx4JNzIh1DixjnyiyCdoSNF8r8PQjoraC07YYvPk1DXS2Nm6HG8IkNZGotPKtBObqyYVtjbEDlMlWczXG1UU6HIsywwaaJoUvLYEbL9JO5memBx1lOqQt2AACSnQfBKeuZlDChNdO66BFVx7TMFOAsVoQKIXTrWjwOCkJZqcDqPgB48NXlnZDq/i04w+O/5fYYnN8C8ezf02hf8PROTpTSiHd6CMdE68jLDY9SLnrsYAg5dhRZ/8oaTEAGyFkIGcG14p0d3kEfPj4JXV0uBUuVe3jo7wQYtoW8FQRT7lLo73D3cnM+XJP1xHll929A0Ank25e97mebB8VnKwFwnvV6O3I4M961SpAnMvbJuT2ng+Rbnh70CUEzk1qinMeff3ecTNcXGNIZFSORQEDOwEoywb66r7pRDWkLM61uIMqXZmixBXTV9Uoa3Hx4b1SN0UvNpRem1FpF+oJL3F4anTd9DEsj0sw4exKui11sNW1xD3G+rSu8bd2mfq6u4az5SROHu+q8TkuPGFdVV6OOitfF83+ItBb637usEP4uBHuxjqzBJfFf+fXnJVetTvpfuPrveKxPjm7FrLmryeKd8nejc/nYPsqfO5q4DrFvGBA+vH88Ovu/rhX/7p6dzw/fQtdd120/1dy5fqUTxqFJTb0ceY+rIdv7g4HX7f3Dtkltel/KYXv+FzvrpV/Rhb+v4d8TZcG272xJ+Ik+RN7RwaSuKqtYX2donu9PzEXYnBQx9aX/R2+tutc4Yet+m8Q4N71fwHL3t/t6AQAAA="}'`,
@@ -274,6 +432,7 @@ export const DF_BASE_HELPER_DEFINITIONS: DFHelperTemplateDefinition[] = [
 		displayName: 'Apply Offset Matrix',
 		functionName: 'rig.applyOffsetMatrix',
 		category: 'offsets',
+		icon: { model: 'minecraft:amethyst_block', usage: 'runtime' },
 		description: 'Applies the specified offset matrix to the selected rig node entities.',
 		codetemplateData: `'{"author":"NineOfGaming","name":"§b§lFunction §3» §brig.applyOffsetMatrix","version":1,"code":"H4sIAAAAAAAA/+1YW2/bNhT+KwKHADGgBVHiOo3eujhdAyxJMbt7qQuDlo5kohSpkZRnz/B/36FkO5Rv9SUY+pAHxyZ5+J3vXElmSgZcRt81Cb9OCYtJWI2JP/8OSVKICIdUpSiEMgayuTT+KmfsrnLgk5gaupDC2Wn7Y//pt27YbN0EfiSzXAoQRofTHsmYgEjRxIRRoY3M+oJm0MO9MDaKIn4kuVRhj/zSat/d3N/2iG9wCSc+5DmfeM9JosF4j9QoNu6R2TefGcpZFF4OFoI467uKQERDKkyGFPopZ/hXjkApFlu9waAmi7rt7NfpQPLYYi7o/DNE25DMKs1U0UmdIwPtmSF4OoeIJQxiT1acs5KzZ2S1DBwig6uKpZ6QMXjIjxncfbFilhwkhY4oytqRRpDvYIZKFumwZrVfiBgUGlgKzr7NkHwhTHjlszh0jdSCJQmoPqQpqiKzmU80l4aElzN/Jb656AN3AmyjhdOVRVUQcNVMcjvLmTY4ynmhKCdhQrkGn8jcMCmciRh0pFg5i5ueXec4XII1LgPeNzR1yMgFxkcLbHngckgetPeJxTEIm77RXCSeIHUWrSb4i76rlvXYHJtgUC6oTbhn19KS0qZiYUl/RNWPy6US2u1MHcm5NwXsjI0osnWwoFXzoTVp6YM/MD4d9i/c/12gwyxbgzoHhbEbn567jn2KRphkFp4pTFPLMi8dOg+1kCrb7o5ICqMk/7E/bG9Yt+FBjDD340XBaKTsezDOq3ppjpveedBqXOx0zvZkacMIOFqjlgnzGVTGtLbLjrc+K2wVbRgU6QbLnLy5OkD3hzj2OjmNQC+Vd7F8vb8oL8B7BJUykR5D4voAEk/YjZfqP7F0yPFjjlTcPMjzCS24WeruYHuKj1H67gCl90rJl1A/gtY0Ba9jJhyOUd2ql5Sz7YhqqEH9CaZQYmcNRlxWfW6fIty3J6Uo5rb4OXinPJ+QmtdFAOzQX748tKu0tUMnnG4Z1iwqs/pB32e5mfwsvWXDLeKltWBheFJ5GV4CXs7n+tn81nTems5b09mqtqyTSX+Of9x96Kwo7OGPZccPuQ6ZsVnHqlC23oh+B3NXPkO6ZRyXrW3Z/P4PS1n8Omb2cf3nttS20kNsPT49Xs96PCdOuNvbd8QZrpw7rBvuDItrQ+uhxsWWF0EhNB1BfPij4Izhy3B87sL6QWPnY2szDt7Ih+eXv27Cu2q4gOvn097Erl2c9SPmYGLNGrH1o+NgwHc1wPVjYW9LWy5O63RiNzViN8cTe+/ivD8e59bFuT3dwOCyZmFwSvrX8/8VCiCoV0CwbwnsgryuQ+5bDZugmjWkVyiDoF4HwQmFENQqIVi57twpoAbsPy8ILvwH7+CMkboUAAA="}'`,
 	},
@@ -282,6 +441,7 @@ export const DF_BASE_HELPER_DEFINITIONS: DFHelperTemplateDefinition[] = [
 		displayName: 'Apply Offset',
 		functionName: 'rig.applyOffset',
 		category: 'offsets',
+		icon: { model: 'minecraft:amethyst_cluster', usage: 'runtime' },
 		description:
 			'Creates an offset matrix from TLSR values and\napplies it to the selected rig node entities.',
 		codetemplateData: `'{"author":"NineOfGaming","name":"§b§lFunction §3» §brig.applyOffset","version":1,"code":"H4sIAAAAAAAA/8VWUU/bMBD+K5b3alWUIdAi7WGjoCGxTSrlqa0iJ3FSD8eO7AvQVf3vO6fpSNIUuq3SpIrW5/N3332+O7OikTLxg6PBdEVlQoPNmrL6O6BpqWNccpuhE/qAyGtv/FVZ/KlqwWjCgW+90LoaXYffPk+Cs/OLIYtNXhgtNLhgNaO51CK2PIUgLh2YPNQ8FzM8K57BcsSPjTI2mNF356PLi6sPM8oAt9DwqSjUknxPUydgRtdzJoErGQcn0dYDrawZQeh4wTXkGDvMlMS/5lFYKxMfcBi1fDGot05XkVGJx9zyeFpgUsiiyy+zfPlC7tIKDsIRrompGJKcg5XPJLUmJ5PbuzF55KqsPJIOexOlpYvxeBXX4bEHAQtrymzRSo6VOhEW86gc1+wvqXLUUSIRCQQMgYUgTigRY3hiZUa0SQRBxSSg0+A4VOdr5FhqCE6ZTIKm7E7LNBU2FFmGoeh6zahTBmhwgvm1S63QoVCNWvOFg2ZMVTvFQRqNm7AsvFFJB7gqVGm5okHKlROMmsJ7eQPYEteJcLGVlRHPTFpA2oAHmj4zsmTk53xARiLlpQLnVZueMOI/80GD8vBQykqkMDZwBM63iETsC1SHNSNPe4gzMmxxPz2UO96+Ev9G+q6GeEPiIXLs0nx/KE2s5MWRNB57qKOIfLbDPlIh8KxB32yjXntqnjhuB/TGkS8ySYQPz+PaJVlisjLuzuzGpZ77zquxvSQD3/vLzQilFZm+yY+b4SO3bw//jVO3QKphslHKxaaWXYtXezvDgM1brK/rbotFJkgFh+r9/c3IVar4JXrUsre60Of8W6SPr+Xp0UMT/ehJtQUyFq8KhvWswsPey17JNi/G1+rB+BPVesHa83AP1u6o6sXqDKo9YLuzo78w6rbfg7Lb2r0o3cbeg3bWrfzqvxAnapH/riaOVv6t4rryb+3SV/b/r7D942Ir3Hz9C7a8HNg7CgAA"}'`,
@@ -291,6 +451,7 @@ export const DF_BASE_HELPER_DEFINITIONS: DFHelperTemplateDefinition[] = [
 		displayName: 'Remove Offset',
 		functionName: 'rig.removeOffset',
 		category: 'offsets',
+		icon: { model: 'minecraft:amethyst_shard', usage: 'runtime' },
 		description: 'Removes the stored offset matrix from the selected rig node entities.',
 		codetemplateData: `'{"author":"NineOfGaming","name":"§b§lFunction §3» §brig.removeOffset","version":1,"code":"H4sIAAAAAAAA/81UbWvbMBD+K0KjsIIJTdlSpo/ry7YPe6Er+9IUo0hnW9SWMuncJQT/956UZHGysNJQxr7YvvfnuTvfgk9qp+4DF7cLbjQXS5lnq7fgRWsVidKX5EQ+CM3Km76SJkYlIeNaolx7kXZxcZV/eX8j3ozOhplyzdRZsBjEYswbY0F5WaBQbUDX5FY2MKZYmKGXlF+52nkx5q9GF+dnl+/GPEMykeIaGvcA7GtRBMAx7+4yg7I2SpxM1i6kzfolwKpKWmyoeF7Whp6UwXujY8XhZMuXqkbt7WLiah1zroH8qogVwdgFWHo530UXGFbAiJcHzVxCyhqJ3sxY4V2ztEINCsnuTcms08AInkEDYbDDyk2KNihJvlEKlOYesPKuLast0llrNXjilxy7u46wtxbFaWa06HMM1hQF+BzKkkrxrst4qB1ycdJlO4Od1DnKsjdaN0XjLFmuZB2ADNEs+KfAPhqtwcZdUSsXPaepGrW7TZt6p6OIcpWbUyMGPvVvOVye0OxbytSpeb4q9OR2PkjfYxA3jZRHbWs0a6jxNRmDctOojd37a0Nwhn/mWmbZhA0Trd99+AB4nrb8JrUSCS6xE/x7WoHo8w+Ykv1FaOZk/7+Zxp/pOVwPX4+XY0/rni9xPMF772Din3NE4a97qI/7GqO3xNih48HyMH1Od+nAI3BJQ/PAEoz1KaCEqmLX8LMlU7y5/ZPwraWe/JA+7OHeuwtvDz9EpaWry85l0j237mh7oJso0j8C5LGnGiwHAAA="}'`,
 	},
@@ -299,6 +460,7 @@ export const DF_BASE_HELPER_DEFINITIONS: DFHelperTemplateDefinition[] = [
 		displayName: 'Compose Matrix',
 		functionName: 'rig.composeMatrix',
 		category: 'offsets',
+		icon: { model: 'minecraft:budding_amethyst', usage: 'internal' },
 		description: 'Creates a transformation matrix from TLSR values.',
 		codetemplateData: `'{"author":"NineOfGaming","name":"§b§lFunction §3» §brig.composeMatrix","version":1,"code":"H4sIAAAAAAAA/+1ZbW/bNhD+KwKHAXWrBaHsOas+rmmxAVkHJPkWGwYtUTZRSvRIKk1q+L/vKNubZMmSbMlyAiQIbIm6l+fuHt6FyhJNufC+KeQ+LBHzkbu+R/bm20VBHHlwS+QMhEBG03AjDVfJitFKbmzkE022UrC6vP4y+fr7vTsYXmHbE+FCRDTSyl2OUMgi6kkSaNeLlRbhJCIhHYEufdKSgH1PcCHdEfppeP3p6vPHEbI1PIKFT8aOotZfREv2NEKrsc004cxzL6dbGVi10z5o5M1JpEPwPplxBp/ikUrJfOMSTzOy4NasPiyngvvG5hbJ9zmEBTh2Ec4keU7Bk5RoqixigVSkAiFDopmIrDDBawVShNb9zd2t9Uh4TNXFTgRiGsTKAxOJbwU636ieSxHP5pkA7TjyqYRYEsHVeAU440i7fZv5bjoeFbEgoHJCZzNwhVYrGykuNHIvV/ZOFRfRhPJUGU1NYNlUVj8vzOUjkXCz4LEkHLkB4YraSCxMgKkFnypPsmQVdG6pirlOOcZ1Hev/HXOmdJlnLeOc43tTAJ5kH1QjoY2hhyfberatH+ML65oGBJApSwvr4dK2zO/4IgXUqQuUNwN6QwNtSaH3QLWt73vQ2hbOAO7XBayaAb7zCKfVOcWAbxfioC5E2QziLZvN20nqrznEUz7RZJaCLLZevxhoBjg8dtGfyvqD+T417om3EfGfIUDm7bbYFOuGZjdvbCPJZhfeuuWtOx5K4BS1ahZM1vuzolmvhQr2mvLEJt8RLW0UURzmLfQzW9yE8F/MN1DAO/aDfv4nhgQZhBpCmcZJRb7+fZ+KSRIPGp6xziT1wBQkN0nghgsRNNT9KVBUnzUHl6VtrlIl33AqVfrZTK/Hj8l3aU49LtY8rZPURrzijXM6ePW8ap6Dc/CqlgrOtPaXTUX11uJayAE+nIr4cCriV9Ti5FuLayEHby2ujTqEjevwMxxU5+8ynwyOmk/vlI1779cr+Jf1t/N+84zbTi993csL9Hvp695eUzJlShaZkilTMjHV630oxOtsneTA4Cq0g2K0OSg4i/VDTmBQE2u/FtZ+3kUWq1MTa78or4NsMObn8E3ZMX+qKlIeZbfsKeB6Gi1uwvUO+ONkoZRzHef4U7NDvyT+VEbpnLf7OIfsaNwpe47hupPLbO/wcb2xoMFF6Wuno8lXVc7yFHU9+gq2ShpvQR2ObrWnGH5OFkr5VsGnG375l4Dn508Ho69F9pxn+LXGn4bDb/ja+NPO6Dtl9+lg+B3LnvaH39WBw89JK//WEfkqU1T+90EH576dgpZvlbrjpJ3Rd8xWcYpz2/bw+/gC+dPB8GuNPZ2MvlPyp+Hwwy2+euqGQCc6+LXWftqffS3Sp/3ph+u+e9qOv35G+4h3w7jmaTOjU/OQmdGpebDI/NdluP8t9Hj1L5vzkk3TJQAA"}'`,
 	},
@@ -307,6 +469,8 @@ export const DF_BASE_HELPER_DEFINITIONS: DFHelperTemplateDefinition[] = [
 		displayName: 'Convert Display Data',
 		functionName: 'rig.convertDisplayData',
 		category: 'core',
+		icon: { model: 'minecraft:repeater', usage: 'internal' },
+		hidden: true,
 		description: 'Converts display data into the rig helper format.',
 		codetemplateData: `'{"author":"NineOfGaming","name":"§b§lFunction §3» §brig.convertDisplayData","version":1,"code":"H4sIAAAAAAAACu1Z3W/bNhD/V4QbCrQAUTRtl2IE9tI4RYcOe1mxlzgQaPIsE6ZIjTw5EQz974NoOZM/4492TlY/GRKOvLvfx1GgpzAwTo4D8JspaAV89gys/eUwLK0EBsJnAfgUNGHeRhPm8U2zKj4wUILEPAo4THuf0j8+fuXvLz9cMOnywlm0FPi0D7m2KL0YEpdlIJenVuTYBz7Fe/KC30ylM87zPvx02bv6cP1LHxjhPfE+XDk7QU9JT4fCiCrpCRJ9qG+ZJmG05G8G88g+1KybyTjfpLiZDpxRTdw8x91IE/aBLefOvKhWEodEtZmbbhNtySU0wsTrLBmhKdAnQ+dzQa+XqnKDYRmkIIy5A3k9Rhp5V2ajhaJZaRV6o20MrG9rJl1pib9jWvFuP8Hq4RB9ilnWhxrqmkEwjoC/qdkSP4VN0XQIatAGDnLWEqoGRGBAVdG8nggPDApTemGAD4UJyMAVpJ3tvFAYpNfxLfA5OqgiLJ1iLnYtRi3UoLSkvYvoLaZ+u5J6YFISWSe3my/96ktssosMOPwWks9aKbSN8mUboSorci2XvdFJd9mQ1W4NXmevW3xbqc6qYxuMFpDSGfCPeG0WtASetkVJX7AKwCBIFyFsJLRVFXRPqzuFkVDuLhWGtpK4fi1i2kp6aYNVKtZuMBBynHlXWpVGE6Y+G3R2ebfbLk1E2rq0s/r9bqsz4+60zZYa+Dly+yCGK4+C8Hcd6Hsx6kr6tpQeRefxVO5PY+4UmjTOg0NJPCWBD+aPg2xnBg+19yqnB8vq7TqoYh/fF6qHc2gjWHvX5bFAQQeWNcbqaOYmwsSD5TjW1FZclvj65Py1kKNrS77qIOOFHGO0ivYoqdFCEU+49sRtodoIpR4+ETNspeViEYsm4WcRvuA+SFjn85NLfacx9wIbkl920GUvJsK/HGP16tX+MntErEs6+xNjxr/iom3oSuMC7govmrB9t324Okqze9p//SnodTYiiyGkboLea7VFrL8+jb63D5sdG593m/6LwP4fINR8lG/U34P4rv8uhQn/S4N39DMr7zSefh4IhXH1NPCRzpJ3Zg0+i5uNdXHE4Dxy0J5+NjaFbJoP58F4HozPbzCejb/TvcK4Otv+bPvzaf8jmb65kVu5CfwRDL+h8Z02if9y/PeOfxaKPtFYOuRK6ulevjwaP78VvK3/AVWpz/EsHgAA"}'`,
 	},
@@ -315,6 +479,7 @@ export const DF_BASE_HELPER_DEFINITIONS: DFHelperTemplateDefinition[] = [
 		displayName: 'Set Text Display Data',
 		functionName: 'rig.setTextDisplayData',
 		category: 'core',
+		icon: { model: 'minecraft:comparator', usage: 'internal' },
 		description: 'Applies text display data to the selected entities.',
 		codetemplateData: `'{"author":"NineOfGaming","name":"§b§lFunction §3» §brig.setTextDisplayData","version":1,"code":"H4sIAAAAAAAA/+1ZXW/bNhT9KwKLAc2gBU62ppiAPbjxug5rugE2toc6EGjqWiJCkwJJNRUM//dd0rItf8hOYjetveXBManL+3XOIWVpTAZCsTtDoo9jwhMSTcckrP5HZFhIhkOqUzRCGwujyhq/+Rm3yg9CklBLZ1Y4O+68jT+86UU/Xb2+CJka5UqCtCYa98mIS2CaDm3ECmPVKJZ0BH1cC5+tpuifKaF01CcvrjrXr3/9uU9Ci5dwogs26OHXoMNNLmgZdDBon0xuQ26p4CxqDWamOBvWQ6FHF+PjeKBE4uxmQe4zzBhDrAZPNS0Xkdt5LjiYwA2DpIruSg6sCmwGgQEBzEISYJXcoun5Sl5qMCwMo2jiRsZqfgc206pIs6W0w0ImoAUm7gwntxPMtJA2+jHkSVSvyEg+HIKOIU0xFJlMQmKEsiRqTcIViHIZg6hh5BqO034YElvmfsSZxVEuCk0FiYZUGAiJyi1XsjaRgGGa+1lc5ACohb5YCz0QsaVpLbaaLX3r/LnweDkiv5vgHU8SkI5wrDJJSsyUs1VKLuJdXrkGVb6J5um5AesYUhFkml7YwG8+jD9RvZvhU6PNzTNM+e45wLZiYD/bdScO9aX2uWrm5XcQkXfU/AFlrQZNGRLHueIaGYdTmIBcwCiVHjWXjO3Zo2af7r41f4cK0eVLN+tZf3YQ/vxFtYHgPaSUlcG10zB+IlfrdPI2N1zyGzCGprChLzVqvXpMLoUQ81TaQqh73Al6NN0j/NUyF9YWN0LsN6AyrlY+D9DNnenpoiZymYHmNujaUixD06sE25sG3lzLE8H5oAKTU+YDTvPwZ8jfVBQQ3IBOuUz3yWUFqZXlFvsPTqZdf0L4tVvEzISasvohav76G5hbFd/zxGbPuo09kuOyGK2nXt+HFmWcLfVgI7Dv0fgfX/Kpo6tQNtjno4a2quEBuP5ZVXvqqOIdaSqP6K5jmu8hbzu8x7PmFvxyMHo2n0rX6An08pHUdnmN8MKm46hdtaEpE+wdpwMBT2rm7uNsFv60tWEymqj7IxJHlfAh1TF1+ZXlgazzZF7SR3dW7Bo751f2U0dTN3fLY57AiesDIK6eWhyTSGpZH1QpC7/fmFy6AD8sKl5nK0Av08X+etnW2AeIZp7GaatmgAWk2CWZxP7x4tYnHrs8UJFn9Wdul4/4KYyqDNqyDJw0Z1S5zoDdBTcqAbJRw2a9lc3I1pcdSvv/47eMnxBBBcuRAPjIXW7ntrsKx9lWRDf/QhxRm71scOoROvv+otXasqv7PezNfNEX3sPAPev8jwjqG3vC8Bx0bJ1fvjpJqh2i1y9a/u8ERf6l7VfAYFSI+GEvdZ8k/fVXcb+BBM3Z0tu428m/AzzwZnoeAAA="}'`,
 	},
@@ -323,6 +488,7 @@ export const DF_BASE_HELPER_DEFINITIONS: DFHelperTemplateDefinition[] = [
 		displayName: 'Set Item Display Data',
 		functionName: 'rig.setItemDisplayData',
 		category: 'core',
+		icon: { model: 'minecraft:comparator', usage: 'internal' },
 		description: 'Applies item display data to the selected entities.',
 		codetemplateData: `'{"author":"NineOfGaming","name":"§b§lFunction §3» §brig.setItemDisplayData","version":1,"code":"H4sIAAAAAAAA/+VXUU/bMBD+K5GnSUOyELAJtEh72Ogo1TReQHuhKHKdS2rh2JHtDKIq/33nNG3TdikdhSG2p9aX833f3X13TSdkJDW/tSS8nhARk3B6JrT5DElSKI5HZlJ0Qh8HWeON32qLv1UfKImZYzMvtE56Z9HFl6vww/HJIeU6y7UC5Ww4GZJMKOCGJS7khXU6ixTLYIh34d4ZhvG5ltqEQ/LmuHd68vXjkFCHj9BwCS4YYPygJ2wuWRn0EHRIqhsqHJOChwejmStaaRsKI3qM68lIy9j7zUDuxsgYIVbBU8PKBfLnPJcCbOCzC+IG3accOB24MQQWJHAHcYBZCoeu+yu89CgpLGfo4k/WGXELbmx0kY6XaNNCxWAkEveO1U2FTAvlwvdUxGE7I6tEkoCJIE0RilQVJVZqR8KDiq60KFcRyFaPfMHRXB8pcWVenwR3eMplYZgkYcKkBUp07oRWLUMMlhtRW/GSb0AL+nANeiQjx9IWtp5dPfPxPDw+DsnABucijkF5wfHGJS6RqeCrklzgHR37AjWxiRHpvgXnFdIIZEqPduhbJNFPZh5W+NTp98WzXNfV8w3b2AN379aD1B7t8vls5un3sCPnzH6DspWDYRyF40MJg4pDExJQizYqbbLulLE8O+TcjPrWOT+icOsK2qZwR8uF64PztfvBZAHdtagntYyaW89TkSVag0aVg+klh4DgG3hZ7w7vs6nNXOrpvGzT55eXdqZjwNn3ZF+PwFukd83/LcrLlO+8lS7C7nUX49OTKbV7517gr/B85X73rIKrabJrIq2fNg+7eGANBRtJeHxR11b5Rh7/9sSkUt9F9evHX52YPxTXg2JfpLHXvQqb5vbR97TO+H9orlDpK9qFM8ZPuQibmC+8BVF89daaLcL+PNM5DfynsbDutv4669i9+5bQn3MuOJMy2u5v3qNGY/3lvA8KjOBL7+c31S/kAA5pjA4AAA=="}'`,
 	},
@@ -331,6 +497,7 @@ export const DF_BASE_HELPER_DEFINITIONS: DFHelperTemplateDefinition[] = [
 		displayName: 'Set Block Display Data',
 		functionName: 'rig.setBlockDisplayData',
 		category: 'core',
+		icon: { model: 'minecraft:comparator', usage: 'internal' },
 		description: 'Applies block display data to the selected entities.',
 		codetemplateData: `'{"author":"NineOfGaming","name":"§b§lFunction §3» §brig.setBlockDisplayData","version":1,"code":"H4sIAAAAAAAA/+VWUWvbMBD+K0ZjsIIobTdSJtjD0qzpGOylYy9NMYosO6KKZKTzWhP833dSnMZJmjbLuo6xp0Tn0913330naUbG2oobT9jVjKiMsPma0PaXkbwyApfcFeiEPiCnrTf+i5awKy4oyTjwhRdaZ4Pz9Gv/G3vXOz2mwk5La6QBz2YjMlVGCsdzYKLyYKep4VM5wr3yDhzH+MJq69iIvOoNzk4/vR8RCvgJDZcSkn4AlwyULzWvkwFmHZHmmirgWgl2NF74opV2c2HIkORqNrY6C36LLLcThIw51rMXjtfL1B/LUivpk8hNkrXpQ9EJ2AQmMvFSSwEyS7BOBeh7uAbMjvPKC44uYeXBqRsJE2erYrKCm1Ymk04j8uDYXDcItTLA3lKVsW5J3qg8ly6VRYGpSNNQ4rUFwo4autak0qRSd7oUKEdzXFICdRlXSgCuSl05rgnLufaSEluCsqZjyKQXTkUrbgod6KQ+3kg91inwopPbLraeh3ghPX5m5LNPLlSWSRMkJ1qXrEakSqyLcpnvpBcIamMTp4pDLyFqpJXIHB/dInGVpz+4e1rkc6eH2fPCRvpCxx5tAtzBZpA5ki6BoZ57AgbYkwvuv8i6U4TjAqUTYimHmkMTIjDLRhrrpttrRoJ+o+hFtJ2r3oO6TRHtRN3JKnVDCYG971xXcjsbcVrrtN31Qpw8WM5rhOLqN8FKY8TUA54W/mC7OvqtyPstAED0MujhMh5Gwekx1Qht5wO4i2z+/qgU2t6m8Xh+0Xn5RYU82dtlGQcrHKzVERs7RN+zWPH/0Fxlin/oJFwgfs65b2M+MvIfnk2o2y9mFB8f6+XVPLyv9B4GPsWW1m0AkDYVA+3H48Yt/3D2PzkXgmud7vYO3ms0Nt8uQ2mkU2Ll9XLd/ARkUgsFrQsAAA=="}'`,
 	},
@@ -339,6 +506,7 @@ export const DF_BASE_HELPER_DEFINITIONS: DFHelperTemplateDefinition[] = [
 		displayName: 'Set Generic Display Data',
 		functionName: 'rig.setGenericDisplayData',
 		category: 'core',
+		icon: { model: 'minecraft:comparator', usage: 'internal' },
 		description: 'Applies generic display data to the selected entities.',
 		codetemplateData: `'{"author":"NineOfGaming","name":"§b§lFunction §3» §brig.setGenericDisplayData","version":1,"code":"H4sIAAAAAAAA/+1YW0/bMBT+K5GnSTBFqGwTaJH2AHSMadoeBtoLRZFjnyYWrl3ZziCr+t93nKY0vZCOSzdKeQK75/595xy3A5JIzS4tic4HRHASjc4krP5GpJsrhkdqUhRCGQe9Shr/K2+8VnkICaeOjqXwdtA+jr8fnkXv9/Z3Q6Z7fa1AORsNOqQnFDBDuy5iuXW6Fyvagw7qwrUzFO0zLbWJOuTVXvto/9OHDgkdfoQXp+CCz6DACBa0he1LWgRt9Nshw4tQOCoFi1rJWBpvw7o3NOrdnA8SLbmXG/u5yjBo9DLrPzW0mDg/6PelABukVQC8CsAnHjgduAwCCxKYAx5grsKh9M5MaDrp5pZRFPEn64y4BJcZnafZVORhrjgYibF7weHFEIPNlYvehYJH9aSsEt0umBjSFF2R4TAkVmpHotYwnAGqr2KQNaR82fG6PIbEFf3yJJjDU1/mhkoSdam0EBLdd0Kr2gUHy4wob1HJY1BzvTvnOpGxo2nNtx6rHnt73j1+HJEvNjgRnIPytGOVCC8wUsFmiTnx93bPF6iyTYxIdyy4iicVTUYRhrcQXXTjX9Qsp/pIaHH9LNNlAT1mjTC4azdv5JeAq9hQlcJUHX1aN3VoIzQn1H6FopaJoQwZ5A0Kg9TDKwxDTfBU2vRuT7ykaRFXLpbmr/LefOiv0YgptvxtOElje6oGM3mUkPxE2R9lxh59k4IP/rRsIC/XlCKTekSav8nx/4ObCCkTTQ3/p9hiDzwg8UnMD82+zo8bq9u3l+Ljo9G1YeqIa+A3U+dwHFVw5gs7T9XDWjFuiwWrKGgi4d5lnZtnTVE874axGeXaDxIuctu4WJrUcbuCSl1W3xR32EzYjsGBKgLfk2OmHGXALoNvms+wZNy8dr6MTbBO1B6r6V+wm2AnZVBBsibgPfY2noJiuxHKxbZ61GVbCyyO0dl+s9tqNYzyanCdllornlrg35Gb0Ebr9iZ8KAuRYs+QYY9R5d3n1tKrln9yXZ7gl9XMKbA2HgV1531Zs2Avi5enzqait/GPnVkw7vPeWWwOkVk+EA9v5NdpCz3xHlq3p87qODhn7jmxcIUwzPTuWg+CjXsdsVyiYhpb8RviDHxd775ip4xcCf7ye9DGg7jxb6X5cj5wSC4AefmkPBopnaLOOm2rp99S6/Bsar0Qbq27f/lvcius9orkL4Z/AHzpudwUIwAA"}'`,
 	},
