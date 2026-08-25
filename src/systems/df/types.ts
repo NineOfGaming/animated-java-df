@@ -31,4 +31,9 @@ export interface CodeClientTemplateItem {
 	itemSnbt?: string
 	customData?: Record<string, unknown>
 	publicBukkitValues?: Record<string, string>
+	splitInfo?: {
+		groupName: string
+		partIndex: number
+		partCount: number
+	}
 }

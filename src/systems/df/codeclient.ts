@@ -5,6 +5,14 @@ import type { CodeClientTemplateItem } from './types'
 const CODECLIENT_API_URL = 'ws://localhost:31375'
 const DEFAULT_INTER_GIVE_COMMAND_DELAY_MS = 50
 
+/**
+ * NBT strings are written with DataOutputStream.writeUTF, whose byte-length prefix is an
+ * unsigned short. Keep some headroom below that protocol limit for CodeClient/Minecraft
+ * changes while still measuring the exact string stored in the template item.
+ */
+export const MINECRAFT_NBT_STRING_MAX_ENCODED_BYTES = 65_535
+export const CODECLIENT_TEMPLATE_SAFE_ENCODED_BYTES = 60_000
+
 function wait(ms: number) {
 	return new Promise(resolve => setTimeout(resolve, ms))
 }
@@ -77,6 +85,51 @@ export class CodeClientError extends Error {
 		super(message)
 		this.name = 'CodeClientError'
 	}
+}
+
+export class CodeClientTemplateSizeError extends CodeClientError {
+	constructor(
+		public readonly templateName: string,
+		public readonly encodedSizeBytes: number,
+		public readonly safeMaximumBytes = CODECLIENT_TEMPLATE_SAFE_ENCODED_BYTES
+	) {
+		super(
+			`DiamondFire template "${templateName}" is ${encodedSizeBytes} bytes in Minecraft's ` +
+				'modified UTF-8 NBT encoding; ' +
+				`the safe maximum is ${safeMaximumBytes} bytes (Minecraft protocol maximum: ` +
+				`${MINECRAFT_NBT_STRING_MAX_ENCODED_BYTES}). Minecraft cannot serialize a single ` +
+				'template item this large. The export was rejected before it was sent to CodeClient.'
+		)
+		this.name = 'CodeClientTemplateSizeError'
+	}
+}
+
+/**
+ * Returns the byte count produced by Java DataOutputStream.writeUTF (modified UTF-8), not
+ * standard UTF-8. In particular, NUL takes two bytes and a supplementary character takes
+ * six bytes because Java encodes its two UTF-16 surrogate code units separately.
+ */
+export function getJavaModifiedUtf8ByteLength(value: string): number {
+	let byteLength = 0
+	for (let i = 0; i < value.length; i++) {
+		const codeUnit = value.charCodeAt(i)
+		if (codeUnit >= 0x0001 && codeUnit <= 0x007f) {
+			byteLength += 1
+		} else if (codeUnit <= 0x07ff) {
+			byteLength += 2
+		} else {
+			byteLength += 3
+		}
+	}
+	return byteLength
+}
+
+export interface PreparedCodeClientTemplate {
+	giveCommand: string
+	templateName: string
+	templatePayload: string
+	encodedSizeBytes: number
+	splitInfo?: CodeClientTemplateItem['splitInfo']
 }
 
 interface CodeClientSocketOptions {
@@ -303,10 +356,10 @@ export class CodeClientSocket {
 
 const DEFAULT_CODECLIENT_SOCKET = new CodeClientSocket()
 
-export async function buildCodeClientGiveCommand(
+export async function prepareCodeClientTemplate(
 	item: CodeClientTemplateItem,
 	toBase64GZip: (input: string) => Promise<string>
-) {
+): Promise<PreparedCodeClientTemplate> {
 	const templateName = item.templateName
 	const displayName = escapeSnbtString(item.displayName ?? templateName)
 	const itemId = item.itemId ?? 'minecraft:ender_chest'
@@ -335,12 +388,23 @@ export async function buildCodeClientGiveCommand(
 		templatePayload = generatedPayload
 	}
 
+	const encodedSizeBytes = getJavaModifiedUtf8ByteLength(templatePayload)
+	if (encodedSizeBytes > CODECLIENT_TEMPLATE_SAFE_ENCODED_BYTES) {
+		throw new CodeClientTemplateSizeError(templateName, encodedSizeBytes)
+	}
+
 	if (item.itemSnbt) {
 		const escapedTemplatePayload = escapeSnbtString(templatePayload)
-		return `give ${item.itemSnbt.replaceAll(
-			'{{CODETEMPLATE_PAYLOAD}}',
-			escapedTemplatePayload
-		)}`
+		return {
+			giveCommand: `give ${item.itemSnbt.replaceAll(
+				'{{CODETEMPLATE_PAYLOAD}}',
+				escapedTemplatePayload
+			)}`,
+			templateName,
+			templatePayload,
+			encodedSizeBytes,
+			splitInfo: item.splitInfo,
+		}
 	}
 
 	const publicBukkitValues = {
@@ -354,19 +418,79 @@ export async function buildCodeClientGiveCommand(
 	const serializedCustomData = JSON.stringify(customData)
 	const loreComponent = buildLoreComponent(item.description)
 
-	return (
-		'give ' +
-		`{count:1,id:"${itemId}",components:{"minecraft:custom_name":[{"text":"${displayName}","color":"#6DC7E9","italic":false}]${loreComponent},"minecraft:custom_data":${serializedCustomData}}}`
-	)
+	return {
+		giveCommand:
+			'give ' +
+			`{count:1,id:"${itemId}",components:{"minecraft:custom_name":[{"text":"${displayName}","color":"#6DC7E9","italic":false}]${loreComponent},"minecraft:custom_data":${serializedCustomData}}}`,
+		templateName,
+		templatePayload,
+		encodedSizeBytes,
+		splitInfo: item.splitInfo,
+	}
+}
+
+export async function buildCodeClientGiveCommand(
+	item: CodeClientTemplateItem,
+	toBase64GZip: (input: string) => Promise<string>
+) {
+	return (await prepareCodeClientTemplate(item, toBase64GZip)).giveCommand
 }
 
 export async function sendTemplatesToCodeClient(
 	templates: CodeClientTemplateItem[],
 	toBase64GZip: (input: string) => Promise<string>
 ) {
-	const commands: string[] = []
-	for (const item of templates) {
-		commands.push(await buildCodeClientGiveCommand(item, toBase64GZip))
+	const preparedTemplates: PreparedCodeClientTemplate[] = []
+	try {
+		for (const item of templates) {
+			preparedTemplates.push(await prepareCodeClientTemplate(item, toBase64GZip))
+		}
+	} catch (error) {
+		if (error instanceof CodeClientTemplateSizeError) {
+			console.error(
+				`[Animated Java/DF] Template rejected: name="${error.templateName}", ` +
+					`finalModifiedUtf8SizeBytes=${error.encodedSizeBytes}, ` +
+					`safeMaximumBytes=${error.safeMaximumBytes}, rejected=true`
+			)
+		}
+		throw error
 	}
-	await DEFAULT_CODECLIENT_SOCKET.sendGiveCommands(commands)
+
+	for (const prepared of preparedTemplates) {
+		const splitPart = prepared.splitInfo
+			? `, splitPart=${prepared.splitInfo.partIndex + 1}/${prepared.splitInfo.partCount}`
+			: ''
+		console.info(
+			`[Animated Java/DF] Template encoded size: name="${prepared.templateName}", ` +
+				`finalModifiedUtf8SizeBytes=${prepared.encodedSizeBytes}${splitPart}`
+		)
+	}
+	const largestEncodedSizeBytes = Math.max(
+		0,
+		...preparedTemplates.map(prepared => prepared.encodedSizeBytes)
+	)
+	const splitGroups = new Map<string, NonNullable<PreparedCodeClientTemplate['splitInfo']>>()
+	for (const prepared of preparedTemplates) {
+		if (prepared.splitInfo) {
+			splitGroups.set(prepared.splitInfo.groupName, prepared.splitInfo)
+		}
+	}
+	const chunkCount =
+		splitGroups.size > 0
+			? Array.from(splitGroups.values()).reduce(
+					(total, splitInfo) => total + splitInfo.partCount,
+					0
+				)
+			: preparedTemplates.length
+	console.info(
+		`[Animated Java/DF] Template generation complete: templateCount=${preparedTemplates.length}, ` +
+			`largestModifiedUtf8SizeBytes=${largestEncodedSizeBytes}, ` +
+			`safeMaximumBytes=${CODECLIENT_TEMPLATE_SAFE_ENCODED_BYTES}, ` +
+			`split=${splitGroups.size > 0}, splitGroupCount=${splitGroups.size}, ` +
+			`chunkCount=${chunkCount}`
+	)
+
+	await DEFAULT_CODECLIENT_SOCKET.sendGiveCommands(
+		preparedTemplates.map(prepared => prepared.giveCommand)
+	)
 }

@@ -5,12 +5,21 @@ import type {
 import { DisplayEntityConfig, InteractionConfig } from '../../nodeConfigs'
 import type { INodeTransform, IRenderedAnimation } from '../animationRenderer'
 import type { AnyRenderedNode, IRenderedRig, IRenderedVariantModel } from '../rigRenderer'
+import {
+	buildCodeTemplate,
+	ensureNamespacedId,
+	parseBlockMaterial,
+	type DFTemplateData,
+	type DFTemplateNode,
+	type RawAnimationData,
+	type RawVariantData,
+	type SupportedDFNodeType,
+} from './codeTemplateBuilder'
+import { DFTemplateSplitError, splitDFCodeTemplateItem } from './codeTemplateSplitter'
 import { CodeClientError, sendTemplatesToCodeClient } from './codeclient'
 import { textToGZip } from './compression'
 import { compressLocatorTransform, compressMatrix, rotateMatrix } from './dfdata'
-import { buildDFExporterFunctionBlock } from './dfExporterTemplate'
 import { jsonTextToMiniMessage } from './minimessage'
-import type { CodeBlock, CodeTemplate } from './types'
 
 export class DFExportError extends Error {
 	constructor(
@@ -22,36 +31,6 @@ export class DFExportError extends Error {
 	}
 }
 
-interface Node {
-	name: string
-	type: AnyRenderedNode['type']
-	data?: Record<string, unknown>
-}
-
-interface DFTemplateData {
-	model_name: string
-	item_material: string
-	nodes: Record<string, Node>
-}
-
-type RawAnimationData = Record<
-	string,
-	{
-		length: number
-		nodes: Record<string, string>
-	}
->
-
-type RawVariantData = Record<string, Node[]>
-
-type SupportedDFNodeType =
-	| 'bone'
-	| 'text_display'
-	| 'item_display'
-	| 'block_display'
-	| 'locator'
-	| 'camera'
-	| 'interaction'
 type SupportedDFDisplayNode = Extract<
 	AnyRenderedNode,
 	{ type: 'bone' | 'text_display' | 'item_display' | 'block_display' }
@@ -67,33 +46,7 @@ const DF_EXPORTED_NODE_TYPES: ReadonlySet<SupportedDFNodeType> = new Set([
 	'interaction',
 ])
 
-const DF_HYPERCUBE_TYPE_BY_NODE_TYPE: Record<SupportedDFNodeType, string> = {
-	bone: 'model',
-	text_display: 'text',
-	item_display: 'item',
-	block_display: 'block',
-	locator: 'locator',
-	camera: 'camera',
-	interaction: 'interaction',
-}
-
-const DF_NODE_ITEM_DISPLAY_TYPE_BY_NODE_TYPE: Record<SupportedDFNodeType, string> = {
-	bone: 'Model',
-	text_display: 'Text Display',
-	item_display: 'Item Display',
-	block_display: 'Block Display',
-	locator: 'Locator',
-	camera: 'Camera',
-	interaction: 'Interaction',
-}
-
 const DF_ANIMATION_NAME_PREFIX = 'animation.model.'
-
-function ensureNamespacedId(id: string): string {
-	const trimmed = id.trim()
-	if (!trimmed) return 'minecraft:stone'
-	return trimmed.includes(':') ? trimmed : `minecraft:${trimmed}`
-}
 
 function toDFAnimationName(animationName: string): string {
 	const trimmed = animationName.trim()
@@ -131,41 +84,6 @@ function getLocatorTransformValues(
 	]
 }
 
-function blockMaterialToItemId(blockMaterial: string): string {
-	return parseBlockMaterial(blockMaterial).itemId
-}
-
-function parseBlockMaterial(blockMaterial: string): { itemId: string; states?: string } {
-	const trimmed = blockMaterial.trim()
-	if (!trimmed) {
-		return { itemId: 'minecraft:stone' }
-	}
-
-	const firstBracket = trimmed.indexOf('[')
-	if (firstBracket === -1) {
-		return { itemId: ensureNamespacedId(trimmed) }
-	}
-
-	const itemId = ensureNamespacedId(trimmed.slice(0, firstBracket).trim() || 'minecraft:stone')
-	const lastBracket = trimmed.lastIndexOf(']')
-	const states = (
-		lastBracket > firstBracket
-			? trimmed.slice(firstBracket + 1, lastBracket)
-			: trimmed.slice(firstBracket + 1)
-	).trim()
-
-	return states ? { itemId, states } : { itemId }
-}
-
-function escapeSnbtString(value: string): string {
-	return value
-		.replace(/\\/g, '\\\\')
-		.replace(/"/g, '\\"')
-		.replace(/\n/g, '\\n')
-		.replace(/\r/g, '\\r')
-		.replace(/\t/g, '\\t')
-}
-
 function normalizeRgbHex(color: string): string {
 	const trimmed = color.trim()
 	if (/^#[0-9a-fA-F]{8}$/.test(trimmed)) {
@@ -175,75 +93,6 @@ function normalizeRgbHex(color: string): string {
 		return trimmed
 	}
 	return '#000000'
-}
-
-type FlatNodeTagPrimitive = string | number | boolean
-
-const ALT_BOOLEAN_TAG_KEYS: ReadonlySet<string> = new Set(['shadow', 'see_through', 'glowing'])
-
-function sanitizeTagKeyPart(part: string): string {
-	const sanitized = part
-		.trim()
-		.replace(/[^a-zA-Z0-9_]+/g, '_')
-		.replace(/^_+|_+$/g, '')
-	return sanitized || 'value'
-}
-
-function flattenNodeDataToTags(
-	value: unknown,
-	currentPath: string[] = [],
-	out: Record<string, FlatNodeTagPrimitive> = {}
-): Record<string, FlatNodeTagPrimitive> {
-	if (value === null || value === undefined) {
-		return out
-	}
-
-	if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-		const key = currentPath.map(sanitizeTagKeyPart).join('_')
-		if (key) {
-			out[key] = value
-		}
-		return out
-	}
-
-	if (Array.isArray(value)) {
-		for (let i = 0; i < value.length; i++) {
-			flattenNodeDataToTags(value[i], [...currentPath, `i${i}`], out)
-		}
-		return out
-	}
-
-	if (typeof value === 'object') {
-		for (const [key, nestedValue] of Object.entries(value as Record<string, unknown>)) {
-			flattenNodeDataToTags(nestedValue, [...currentPath, key], out)
-		}
-		return out
-	}
-
-	return out
-}
-
-function primitiveToString(value: FlatNodeTagPrimitive): string {
-	if (typeof value === 'boolean') return value ? 'true' : 'false'
-	return String(value)
-}
-
-function appendAltBooleanNodeTags(
-	tags: Record<string, FlatNodeTagPrimitive>
-): Record<string, FlatNodeTagPrimitive> {
-	const tagsWithAltValues: Record<string, FlatNodeTagPrimitive> = { ...tags }
-
-	for (const [key, value] of Object.entries(tags)) {
-		if (!ALT_BOOLEAN_TAG_KEYS.has(key) || typeof value !== 'boolean') continue
-		tagsWithAltValues[`${key}_alt`] = value ? 'enabled' : 'disabled'
-	}
-
-	return tagsWithAltValues
-}
-
-function buildNodeItemCustomNameComponent(type: SupportedDFNodeType, nodeName: string): string {
-	const label = `${DF_NODE_ITEM_DISPLAY_TYPE_BY_NODE_TYPE[type]}: ${nodeName}`
-	return `[{"text":"${escapeSnbtString(label)}","color":"#6DC7E9","italic":false}]`
 }
 
 function resolveDisplayConfigWithDefaults(
@@ -317,7 +166,7 @@ function serializeNodeForDF(
 	node: AnyRenderedNode,
 	defaultVariantModel?: IRenderedVariantModel,
 	displayConfig?: Record<string, string | number | boolean>
-): Node | undefined {
+): DFTemplateNode | undefined {
 	if (!isSupportedDFNodeType(node.type)) {
 		return
 	}
@@ -449,84 +298,6 @@ function isSupportedDFDisplayNode(node: AnyRenderedNode): node is SupportedDFDis
 	)
 }
 
-function buildNodeItemSNBT(nodeData: Node, fallbackItemMaterial: string): string | undefined {
-	if (!isSupportedDFNodeType(nodeData.type)) {
-		return
-	}
-
-	const hypercubeType = DF_HYPERCUBE_TYPE_BY_NODE_TYPE[nodeData.type]
-	const flatNodeData = flattenNodeDataToTags(nodeData.data ?? {})
-	const customDataTags: Record<string, FlatNodeTagPrimitive> = {
-		...appendAltBooleanNodeTags(flatNodeData),
-		id: nodeData.name,
-		type: hypercubeType,
-	}
-
-	const bukkitValues: string[] = Object.entries(customDataTags).map(([key, value]) => {
-		return `"hypercube:${escapeSnbtString(key)}":"${escapeSnbtString(
-			primitiveToString(value)
-		)}"`
-	})
-
-	const components: string[] = [
-		`"minecraft:custom_data":{PublicBukkitValues:{${bukkitValues.join(',')}}}`,
-		`"minecraft:custom_name":${buildNodeItemCustomNameComponent(nodeData.type, nodeData.name)}`,
-	]
-
-	let itemId = ensureNamespacedId(fallbackItemMaterial)
-
-	switch (nodeData.type) {
-		case 'bone': {
-			const itemModel = nodeData.data?.item_model
-			const material = nodeData.data?.material
-			if (typeof itemModel === 'string' && itemModel.length > 0) {
-				components.push(`"minecraft:item_model":"${escapeSnbtString(itemModel)}"`)
-			}
-			if (typeof material === 'string' && material.length > 0) {
-				itemId = ensureNamespacedId(material)
-			}
-			break
-		}
-		case 'text_display': {
-			itemId = 'minecraft:book'
-			break
-		}
-		case 'item_display': {
-			const material = nodeData.data?.material
-			itemId =
-				typeof material === 'string' && material.length > 0
-					? ensureNamespacedId(material)
-					: 'minecraft:stone'
-			if (nodeData.data?.enchanted === true) {
-				components.push(`"minecraft:enchantment_glint_override":1b`)
-			}
-			break
-		}
-		case 'block_display': {
-			const material = nodeData.data?.material
-			itemId =
-				typeof material === 'string' && material.length > 0
-					? blockMaterialToItemId(material)
-					: 'minecraft:stone'
-			break
-		}
-		case 'locator': {
-			itemId = 'minecraft:paper'
-			break
-		}
-		case 'camera': {
-			itemId = 'minecraft:spyglass'
-			break
-		}
-		case 'interaction': {
-			itemId = 'minecraft:tripwire_hook'
-			break
-		}
-	}
-
-	return `{components:{${components.join(',')}},count:1,id:"${escapeSnbtString(itemId)}"}`
-}
-
 export async function exportJSONDF(options: {
 	rig: IRenderedRig
 	animations: IRenderedAnimation[]
@@ -536,7 +307,7 @@ export async function exportJSONDF(options: {
 }) {
 	const { rig, animations, displayItemPath } = options
 
-	const nodes: Record<string, Node> = {}
+	const nodes: Record<string, DFTemplateNode> = {}
 	const defaultVariant = Object.values(rig.variants).find(variant => variant.is_default)
 	for (const [uuid, node] of Object.entries(rig.nodes)) {
 		const renderedNode = serializeNodeForDF(node, defaultVariant?.models[uuid])
@@ -572,7 +343,7 @@ export async function exportJSONDF(options: {
 	const variantData: RawVariantData = {}
 	for (const variant of Object.values(rig.variants)) {
 		if (variant.is_default) continue
-		const variantNodes: Node[] = []
+		const variantNodes: DFTemplateNode[] = []
 		for (const nodeUuid of variantAffectedNodeUuids) {
 			const node = rig.nodes[nodeUuid]
 			if (!isSupportedDFDisplayNode(node)) continue
@@ -642,242 +413,26 @@ export async function exportJSONDF(options: {
 
 	const codeTemplate = buildCodeTemplate(dataForTemplate, animationData, variantData)
 	try {
-		await sendTemplatesToCodeClient(
-			[
-				{
-					template: codeTemplate,
-					templateName: Project!.name,
-					displayName: `Init Rig ${Project!.name}`,
-				},
-			],
+		const templateItems = await splitDFCodeTemplateItem(
+			{
+				template: codeTemplate,
+				templateName: Project!.name,
+				displayName: `Init Rig ${Project!.name}`,
+			},
 			textToGZip
 		)
+		await sendTemplatesToCodeClient(templateItems, textToGZip)
 	} catch (error) {
+		if (error instanceof DFTemplateSplitError) {
+			console.error(
+				`[Animated Java/DF] Template split rejected: name="${error.templateName}", ` +
+					`finalModifiedUtf8SizeBytes=${error.encodedSizeBytes}, ` +
+					`safeMaximumBytes=${error.safeMaximumBytes}, rejected=true`
+			)
+		}
 		if (error instanceof CodeClientError) {
 			throw new DFExportError(error.message, error.cause)
 		}
 		throw error
 	}
-}
-
-function buildCodeTemplate(
-	templateData: DFTemplateData,
-	rawAnimationData: RawAnimationData,
-	rawVariantData: RawVariantData
-): CodeTemplate {
-	// {"blocks":[
-	// {"id":"block","block":"func","args":{"items":[{"item":{"id":"pn_el","data":{"name":"nodes","type":"var","plural":false,"optional":false}},"slot":0},{"item":{"id":"pn_el","data":{"name":"animations","type":"var","plural":false,"optional":false}},"slot":1},{"item":{"id":"hint","data":{"id":"function"}},"slot":25},{"item":{"id":"bl_tag","data":{"option":"False","tag":"Is Hidden","action":"dynamic","block":"func"}},"slot":26}]},"data":"consts.rig.NAME"},{"id":"block","block":"set_var","args":{"items":[{"item":{"id":"var","data":{"name":"nodes","scope":"line"}},"slot":0},{"item":{"id":"item","data":{"item":"{DF_NBT:3955,components:{\"minecraft:custom_data\":{PublicBukkitValues:{\"hypercube:id\":\"leg_right\",\"hypercube:type\":\"model\"}},\"minecraft:custom_model_data\":2},count:1,id:\"minecraft:lime_candle\"}"}},"slot":1},{"item":{"id":"item","data":{"item":"{DF_NBT:3955,components:{\"minecraft:custom_data\":{PublicBukkitValues:{\"hypercube:id\":\"backpack\",\"hypercube:type\":\"text\"}},\"minecraft:custom_name\":'{\"color\":\"red\",\"italic\":false,\"text\":\"asdf\"}'},count:1,id:\"minecraft:name_tag\"}"}},"slot":2},{"item":{"id":"item","data":{"item":"{DF_NBT:3955,components:{\"minecraft:custom_data\":{PublicBukkitValues:{\"hypercube:id\":\"held\",\"hypercube:type\":\"item\"}}},count:1,id:\"minecraft:diamond_sword\"}"}},"slot":3}]},"action":"CreateList"},{"id":"block","block":"set_var","args":{"items":[{"item":{"id":"var","data":{"name":"animations","scope":"line"}},"slot":0},{"item":{"id":"txt","data":{"name":"default"}},"slot":1},{"item":{"id":"txt","data":{"name":"soem really long compressed gzip"}},"slot":2}]},"action":"SetDictValue"},{"id":"block","block":"set_var","args":{"items":[{"item":{"id":"var","data":{"name":"animations","scope":"line"}},"slot":0},{"item":{"id":"txt","data":{"name":"wave"}},"slot":1},{"item":{"id":"txt","data":{"name":"soem really long compressed gzip"}},"slot":2}]},"action":"SetDictValue"}
-	// ]}
-
-	const template: CodeTemplate = {
-		blocks: [],
-	}
-
-	// Function Block
-	template.blocks.push(buildDFExporterFunctionBlock(templateData.model_name))
-
-	// Set Nodes Variable Block
-	let nodesVarBlock: CodeBlock = {
-		id: 'block',
-		block: 'set_var',
-		action: 'CreateList',
-		args: {
-			items: [
-				{
-					item: { id: 'var', data: { name: 'nodes', scope: 'line' } },
-					slot: 0,
-				},
-			],
-		},
-	}
-
-	const slotLimit = 27
-	for (const nodeData of Object.values(templateData.nodes)) {
-		const itemSnbt = buildNodeItemSNBT(nodeData, templateData.item_material)
-		if (!itemSnbt) continue
-
-		nodesVarBlock.args!.items!.push({
-			item: {
-				id: 'item',
-				data: {
-					item: itemSnbt,
-				},
-			},
-			slot: nodesVarBlock.args!.items!.length,
-		})
-
-		if (nodesVarBlock.args!.items!.length >= slotLimit) {
-			// push current block and start a new one
-			template.blocks.push(nodesVarBlock)
-			nodesVarBlock = {
-				id: 'block',
-				block: 'set_var',
-				action: 'AppendValue',
-				args: {
-					items: [
-						{
-							item: { id: 'var', data: { name: 'nodes', scope: 'line' } },
-							slot: 0,
-						},
-					],
-				},
-			}
-		}
-	}
-	if (nodesVarBlock.action === 'CreateList' || nodesVarBlock.args!.items!.length > 1) {
-		template.blocks.push(nodesVarBlock)
-	}
-
-	// Set Animations Variable Blocks
-	for (const [animationName, animation] of Object.entries(rawAnimationData)) {
-		let animationBlock: CodeBlock = {
-			id: 'block',
-			block: 'set_var',
-			action: 'CreateList',
-			args: {
-				items: [
-					{
-						item: { id: 'var', data: { name: animationName, scope: 'line' } },
-						slot: 0,
-					},
-				],
-			},
-		}
-
-		animationBlock.args!.items!.push({
-			item: { id: 'num', data: { name: animation.length.toString() } },
-			slot: animationBlock.args!.items!.length,
-		})
-
-		// add node data
-		for (const [nodeName, compressedMatrix] of Object.entries(animation.nodes)) {
-			if (animationBlock.args!.items!.length + 2 > slotLimit) {
-				// push current block and start a new one
-				template.blocks.push(animationBlock)
-				animationBlock = {
-					id: 'block',
-					block: 'set_var',
-					action: 'AppendValue',
-					args: {
-						items: [
-							{
-								item: { id: 'var', data: { name: animationName, scope: 'line' } },
-								slot: 0,
-							},
-						],
-					},
-				}
-			}
-			animationBlock.args!.items!.push({
-				item: { id: 'txt', data: { name: nodeName } },
-				slot: animationBlock.args!.items!.length,
-			})
-			animationBlock.args!.items!.push({
-				item: { id: 'txt', data: { name: compressedMatrix } },
-				slot: animationBlock.args!.items!.length,
-			})
-		}
-		if (animationBlock.args!.items!.length > 1) template.blocks.push(animationBlock)
-
-		const setDictValueBlock: CodeBlock = {
-			id: 'block',
-			block: 'set_var',
-			action: 'SetDictValue',
-			args: {
-				items: [
-					{
-						item: { id: 'var', data: { name: 'animations', scope: 'line' } },
-						slot: 0,
-					},
-					{
-						item: { id: 'txt', data: { name: animationName } },
-						slot: 1,
-					},
-					{
-						item: { id: 'var', data: { name: animationName, scope: 'line' } },
-						slot: 2,
-					},
-				],
-			},
-		}
-		template.blocks.push(setDictValueBlock)
-	}
-
-	// Set Variant Variable Blocks
-	for (const [variantName, variant] of Object.entries(rawVariantData)) {
-		let variantBlock: CodeBlock = {
-			id: 'block',
-			block: 'set_var',
-			action: 'CreateList',
-			args: {
-				items: [
-					{
-						item: { id: 'var', data: { name: variantName, scope: 'line' } },
-						slot: 0,
-					},
-				],
-			},
-		}
-
-		// add node data
-		for (const nodeData of variant) {
-			if (variantBlock.args!.items!.length + 1 > slotLimit) {
-				// push current block and start a new one
-				template.blocks.push(variantBlock)
-				variantBlock = {
-					id: 'block',
-					block: 'set_var',
-					action: 'AppendValue',
-					args: {
-						items: [
-							{
-								item: { id: 'var', data: { name: variantName, scope: 'line' } },
-								slot: 0,
-							},
-						],
-					},
-				}
-			}
-			const itemSnbt = buildNodeItemSNBT(nodeData, templateData.item_material)
-			if (!itemSnbt) continue
-
-			variantBlock.args!.items!.push({
-				item: {
-					id: 'item',
-					data: {
-						item: itemSnbt,
-					},
-				},
-				slot: variantBlock.args!.items!.length,
-			})
-		}
-		if (variantBlock.action === 'CreateList' || variantBlock.args!.items!.length > 1) {
-			template.blocks.push(variantBlock)
-		}
-
-		const setDictValueBlock: CodeBlock = {
-			id: 'block',
-			block: 'set_var',
-			action: 'SetDictValue',
-			args: {
-				items: [
-					{
-						item: { id: 'var', data: { name: 'variants', scope: 'line' } },
-						slot: 0,
-					},
-					{
-						item: { id: 'txt', data: { name: variantName } },
-						slot: 1,
-					},
-					{
-						item: { id: 'var', data: { name: variantName, scope: 'line' } },
-						slot: 2,
-					},
-				],
-			},
-		}
-		template.blocks.push(setDictValueBlock)
-	}
-
-	return template
 }
