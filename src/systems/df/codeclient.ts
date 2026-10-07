@@ -1,3 +1,4 @@
+import { gzipBase64ToText } from './compression'
 import type { CodeClientTemplateItem } from './types'
 
 // https://github.com/DFOnline/CodeClient/wiki/API
@@ -12,6 +13,12 @@ const DEFAULT_INTER_GIVE_COMMAND_DELAY_MS = 50
  */
 export const MINECRAFT_NBT_STRING_MAX_ENCODED_BYTES = 65_535
 export const CODECLIENT_TEMPLATE_SAFE_ENCODED_BYTES = 60_000
+
+// Conservative export budget for the entire decoded template, including every code argument and block.
+// actual limit appears to be about 100kb, so a bit lower for safety.
+export const CODECLIENT_TEMPLATE_SAFE_DECODED_BYTES = 90_000
+
+export type CodeClientTemplateSizeKind = 'minecraft-nbt' | 'diamondfire-decoded-data'
 
 function wait(ms: number) {
 	return new Promise(resolve => setTimeout(resolve, ms))
@@ -91,14 +98,19 @@ export class CodeClientTemplateSizeError extends CodeClientError {
 	constructor(
 		public readonly templateName: string,
 		public readonly encodedSizeBytes: number,
-		public readonly safeMaximumBytes = CODECLIENT_TEMPLATE_SAFE_ENCODED_BYTES
+		public readonly safeMaximumBytes = CODECLIENT_TEMPLATE_SAFE_ENCODED_BYTES,
+		public readonly sizeKind: CodeClientTemplateSizeKind = 'minecraft-nbt'
 	) {
 		super(
-			`DiamondFire template "${templateName}" is ${encodedSizeBytes} bytes in Minecraft's ` +
-				'modified UTF-8 NBT encoding; ' +
-				`the safe maximum is ${safeMaximumBytes} bytes (Minecraft protocol maximum: ` +
-				`${MINECRAFT_NBT_STRING_MAX_ENCODED_BYTES}). Minecraft cannot serialize a single ` +
-				'template item this large. The export was rejected before it was sent to CodeClient.'
+			sizeKind === 'diamondfire-decoded-data'
+				? `DiamondFire template "${templateName}" contains ${encodedSizeBytes} bytes of ` +
+						`decoded code data; the conservative export budget is ${safeMaximumBytes} bytes per template. ` +
+						'The export was rejected before it was sent to CodeClient.'
+				: `DiamondFire template "${templateName}" is ${encodedSizeBytes} bytes in Minecraft's ` +
+						'modified UTF-8 NBT encoding; ' +
+						`the safe maximum is ${safeMaximumBytes} bytes (Minecraft protocol maximum: ` +
+						`${MINECRAFT_NBT_STRING_MAX_ENCODED_BYTES}). Minecraft cannot serialize a single ` +
+						'template item this large. The export was rejected before it was sent to CodeClient.'
 		)
 		this.name = 'CodeClientTemplateSizeError'
 	}
@@ -129,6 +141,7 @@ export interface PreparedCodeClientTemplate {
 	templateName: string
 	templatePayload: string
 	encodedSizeBytes: number
+	codeDataSizeBytes: number
 	splitInfo?: CodeClientTemplateItem['splitInfo']
 }
 
@@ -356,6 +369,19 @@ export class CodeClientSocket {
 
 const DEFAULT_CODECLIENT_SOCKET = new CodeClientSocket()
 
+function validateDecodedCodeDataSize(templateName: string, serializedTemplate: string): number {
+	const sizeBytes = new TextEncoder().encode(serializedTemplate).byteLength
+	if (sizeBytes > CODECLIENT_TEMPLATE_SAFE_DECODED_BYTES) {
+		throw new CodeClientTemplateSizeError(
+			templateName,
+			sizeBytes,
+			CODECLIENT_TEMPLATE_SAFE_DECODED_BYTES,
+			'diamondfire-decoded-data'
+		)
+	}
+	return sizeBytes
+}
+
 export async function prepareCodeClientTemplate(
 	item: CodeClientTemplateItem,
 	toBase64GZip: (input: string) => Promise<string>
@@ -365,8 +391,22 @@ export async function prepareCodeClientTemplate(
 	const itemId = item.itemId ?? 'minecraft:ender_chest'
 
 	let templatePayload: string
+	let codeDataSizeBytes: number
 	if (item.codetemplateData) {
 		const normalizedPayload = parseAndNormalizeCodeTemplateData(item.codetemplateData)
+		const code: unknown = JSON.parse(normalizedPayload).code
+		if (typeof code !== 'string') {
+			throw new CodeClientError(
+				'Invalid codetemplateData. Expected a base64-gzip `code` string.'
+			)
+		}
+		let serializedTemplate: string
+		try {
+			serializedTemplate = gzipBase64ToText(code)
+		} catch (error) {
+			throw new CodeClientError('Invalid codetemplateData compressed code.', error)
+		}
+		codeDataSizeBytes = validateDecodedCodeDataSize(templateName, serializedTemplate)
 		templatePayload = normalizedPayload
 	} else {
 		if (!item.template) {
@@ -375,7 +415,10 @@ export async function prepareCodeClientTemplate(
 			)
 		}
 
-		const zippedTemplate = await toBase64GZip(JSON.stringify(item.template))
+		const serializedTemplate = JSON.stringify(item.template)
+		codeDataSizeBytes = validateDecodedCodeDataSize(templateName, serializedTemplate)
+
+		const zippedTemplate = await toBase64GZip(serializedTemplate)
 		const author = item.author ?? 'Animated Java'
 		const version = item.version ?? 1
 		const generatedPayload = JSON.stringify({
@@ -403,6 +446,7 @@ export async function prepareCodeClientTemplate(
 			templateName,
 			templatePayload,
 			encodedSizeBytes,
+			codeDataSizeBytes,
 			splitInfo: item.splitInfo,
 		}
 	}
@@ -425,6 +469,7 @@ export async function prepareCodeClientTemplate(
 		templateName,
 		templatePayload,
 		encodedSizeBytes,
+		codeDataSizeBytes,
 		splitInfo: item.splitInfo,
 	}
 }
@@ -449,8 +494,8 @@ export async function sendTemplatesToCodeClient(
 		if (error instanceof CodeClientTemplateSizeError) {
 			console.error(
 				`[Animated Java/DF] Template rejected: name="${error.templateName}", ` +
-					`finalModifiedUtf8SizeBytes=${error.encodedSizeBytes}, ` +
-					`safeMaximumBytes=${error.safeMaximumBytes}, rejected=true`
+					`sizeKind=${error.sizeKind}, measuredSize=${error.encodedSizeBytes}, ` +
+					`safeMaximum=${error.safeMaximumBytes}, rejected=true`
 			)
 		}
 		throw error
@@ -462,7 +507,8 @@ export async function sendTemplatesToCodeClient(
 			: ''
 		console.info(
 			`[Animated Java/DF] Template encoded size: name="${prepared.templateName}", ` +
-				`finalModifiedUtf8SizeBytes=${prepared.encodedSizeBytes}${splitPart}`
+				`finalModifiedUtf8SizeBytes=${prepared.encodedSizeBytes}, ` +
+				`uncompressedCodeDataSizeBytes=${prepared.codeDataSizeBytes}${splitPart}`
 		)
 	}
 	const largestEncodedSizeBytes = Math.max(
@@ -486,6 +532,7 @@ export async function sendTemplatesToCodeClient(
 		`[Animated Java/DF] Template generation complete: templateCount=${preparedTemplates.length}, ` +
 			`largestModifiedUtf8SizeBytes=${largestEncodedSizeBytes}, ` +
 			`safeMaximumBytes=${CODECLIENT_TEMPLATE_SAFE_ENCODED_BYTES}, ` +
+			`safeDecodedMaximumBytes=${CODECLIENT_TEMPLATE_SAFE_DECODED_BYTES}, ` +
 			`split=${splitGroups.size > 0}, splitGroupCount=${splitGroups.size}, ` +
 			`chunkCount=${chunkCount}`
 	)

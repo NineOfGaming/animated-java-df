@@ -3,6 +3,7 @@ import {
 	CodeClientError,
 	CodeClientTemplateSizeError,
 	prepareCodeClientTemplate,
+	type CodeClientTemplateSizeKind,
 } from './codeclient'
 import type { CodeBlock, CodeClientTemplateItem, CodeTemplate } from './types'
 
@@ -19,6 +20,8 @@ interface AtomicOperation {
 interface SizeResult {
 	fits: boolean
 	encodedSizeBytes: number
+	safeMaximumBytes: number
+	sizeKind: CodeClientTemplateSizeKind
 }
 
 export class DFTemplateSplitError extends CodeClientError {
@@ -26,12 +29,16 @@ export class DFTemplateSplitError extends CodeClientError {
 		public readonly templateName: string,
 		public readonly encodedSizeBytes: number,
 		public readonly safeMaximumBytes: number,
-		reason: string
+		reason: string,
+		public readonly sizeKind: CodeClientTemplateSizeKind = 'minecraft-nbt'
 	) {
 		super(
 			`DiamondFire template "${templateName}" could not be split safely: ${reason} ` +
-				`The final item string is ${encodedSizeBytes} bytes in Minecraft's modified UTF-8 ` +
-				`NBT encoding; the safe maximum is ${safeMaximumBytes} bytes.`
+				(sizeKind === 'diamondfire-decoded-data'
+					? `Its decoded code data is ${encodedSizeBytes} bytes; the conservative export budget ` +
+						`is ${safeMaximumBytes} bytes per template.`
+					: `The final item string is ${encodedSizeBytes} bytes in Minecraft's modified UTF-8 ` +
+						`NBT encoding; the safe maximum is ${safeMaximumBytes} bytes.`)
 		)
 		this.name = 'DFTemplateSplitError'
 	}
@@ -367,10 +374,20 @@ async function getSizeResult(
 ): Promise<SizeResult> {
 	try {
 		const prepared = await prepareCodeClientTemplate(item, toBase64GZip)
-		return { fits: true, encodedSizeBytes: prepared.encodedSizeBytes }
+		return {
+			fits: true,
+			encodedSizeBytes: prepared.encodedSizeBytes,
+			safeMaximumBytes: CODECLIENT_TEMPLATE_SAFE_ENCODED_BYTES,
+			sizeKind: 'minecraft-nbt',
+		}
 	} catch (error) {
 		if (error instanceof CodeClientTemplateSizeError) {
-			return { fits: false, encodedSizeBytes: error.encodedSizeBytes }
+			return {
+				fits: false,
+				encodedSizeBytes: error.encodedSizeBytes,
+				safeMaximumBytes: error.safeMaximumBytes,
+				sizeKind: error.sizeKind,
+			}
 		}
 		throw error
 	}
@@ -406,8 +423,9 @@ async function buildDispatcherLayer(
 			throw new DFTemplateSplitError(
 				originalItem.templateName,
 				candidateSize.encodedSizeBytes,
-				CODECLIENT_TEMPLATE_SAFE_ENCODED_BYTES,
-				'one generated helper call is indivisible.'
+				candidateSize.safeMaximumBytes,
+				'one generated helper call is indivisible.',
+				candidateSize.sizeKind
 			)
 		}
 
@@ -464,8 +482,9 @@ export async function splitDFCodeTemplateItem(
 		throw new DFTemplateSplitError(
 			item.templateName,
 			originalSizeError.encodedSizeBytes,
-			CODECLIENT_TEMPLATE_SAFE_ENCODED_BYTES,
-			error instanceof Error ? error.message : String(error)
+			originalSizeError.safeMaximumBytes,
+			error instanceof Error ? error.message : String(error),
+			originalSizeError.sizeKind
 		)
 	}
 	if (operations.length === 0) throw originalSizeError
@@ -488,8 +507,9 @@ export async function splitDFCodeTemplateItem(
 			throw new DFTemplateSplitError(
 				item.templateName,
 				candidateSize.encodedSizeBytes,
-				CODECLIENT_TEMPLATE_SAFE_ENCODED_BYTES,
-				describeAtomicOperation(operation)
+				candidateSize.safeMaximumBytes,
+				describeAtomicOperation(operation),
+				candidateSize.sizeKind
 			)
 		}
 
@@ -506,8 +526,9 @@ export async function splitDFCodeTemplateItem(
 			throw new DFTemplateSplitError(
 				item.templateName,
 				singleOperationSize.encodedSizeBytes,
-				CODECLIENT_TEMPLATE_SAFE_ENCODED_BYTES,
-				describeAtomicOperation(operation)
+				singleOperationSize.safeMaximumBytes,
+				describeAtomicOperation(operation),
+				singleOperationSize.sizeKind
 			)
 		}
 	}
@@ -540,8 +561,9 @@ export async function splitDFCodeTemplateItem(
 		throw new DFTemplateSplitError(
 			item.templateName,
 			mainSize.encodedSizeBytes,
-			CODECLIENT_TEMPLATE_SAFE_ENCODED_BYTES,
-			'the public function header and its smallest helper-call orchestrator are indivisible.'
+			mainSize.safeMaximumBytes,
+			'the public function header and its smallest helper-call orchestrator are indivisible.',
+			mainSize.sizeKind
 		)
 	}
 

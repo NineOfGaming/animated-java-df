@@ -426,8 +426,8 @@ export async function exportJSONDF(options: {
 		if (error instanceof DFTemplateSplitError) {
 			console.error(
 				`[Animated Java/DF] Template split rejected: name="${error.templateName}", ` +
-					`finalModifiedUtf8SizeBytes=${error.encodedSizeBytes}, ` +
-					`safeMaximumBytes=${error.safeMaximumBytes}, rejected=true`
+					`sizeKind=${error.sizeKind}, measuredSize=${error.encodedSizeBytes}, ` +
+					`safeMaximum=${error.safeMaximumBytes}, rejected=true`
 			)
 		}
 		if (error instanceof CodeClientError) {
